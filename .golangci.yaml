@@ -1,0 +1,210 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+  go: '1.25'
+
+linters:
+  enable:
+    # Enabled by default
+    - errcheck      # Check for unchecked errors
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Go static analysis (includes gosimple and stylecheck in v2)
+    - unused        # Check for unused code
+
+    # Additional linters
+    - bodyclose     # Check HTTP response body is closed
+    - contextcheck  # Check context is passed correctly
+    - cyclop        # Check function complexity
+    - dupl          # Check for code duplication
+    - durationcheck # Check for time.Duration multiplication
+    - errname       # Check error names
+    - errorlint     # Find code that will cause problems with Go 1.13+ error wrapping
+    - exhaustive    # Check exhaustiveness of enum switch statements
+    - forbidigo     # Forbid identifiers
+    - gochecknoinits # Check for init functions
+    - goconst       # Find repeated strings that could be constants
+    - gocritic      # Provides diagnostics that check for bugs, performance and style issues
+    - gocyclo       # Compute cyclomatic complexity
+    - godot         # Check if comments end in a period
+    - gosec         # Inspect source code for security problems
+    - misspell      # Find commonly misspelled English words
+    - nakedret      # Check for naked returns in long functions
+    - nilerr        # Find code that returns nil even if it checks error
+    - nolintlint    # Report ill-formed or insufficient nolint directives
+    - prealloc      # Find slice declarations that could be preallocated
+    - predeclared   # Find code that shadows predeclared identifiers
+    - revive        # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - thelper       # Detect test helpers without t.Helper()
+    - tparallel     # Detect inappropriate usage of t.Parallel()
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Report unused function parameters
+    - wastedassign  # Find wasted assignment statements
+    - whitespace    # Check for unnecessary blank lines
+
+    # Additional v2 recommended linters
+    - protogetter   # Reports direct reads from proto message fields (gRPC best practices)
+    - perfsprint    # Checks for performance improvements in string formatting
+    - mirror        # Reports wrong mirror patterns
+    - usestdlibvars # Detects possibility to use standard library constants/variables
+    - testifylint   # Checks usage of testify
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: true
+      exclude-functions:
+        - (*database/sql.Rows).Close
+        - (*database/sql.DB).Close
+
+    govet:
+      enable-all: true
+      disable:
+        - shadow # Too strict for this project
+
+    gocyclo:
+      min-complexity: 15
+
+    cyclop:
+      max-complexity: 15
+
+    dupl:
+      threshold: 100
+
+    goconst:
+      min-len: 3
+      min-occurrences: 3
+
+    gosec:
+      excludes:
+        - G104 # Audit errors not checked (covered by errcheck)
+      severity: medium
+      confidence: medium
+
+    misspell:
+      locale: US
+
+    nakedret:
+      max-func-lines: 30
+
+    revive:
+      rules:
+        - name: exported
+          arguments:
+            - "checkPrivateReceivers"
+            - "sayRepetitiveInsteadOfStutters"
+        - name: package-comments
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: increment-decrement
+        - name: var-naming
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+        - name: unused-parameter
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    staticcheck:
+      checks: ["all", "-ST1000", "-ST1003"]
+
+    forbidigo:
+      forbid:
+        - pattern: 'fmt\.Print.*'
+          msg: 'Use slog for structured logging instead of fmt.Print*'
+        - pattern: 'log\.Print.*'
+          msg: 'Use slog for structured logging instead of log.Print*'
+        - pattern: '^panic$'
+          msg: 'Avoid panics in production code - return errors instead'
+      exclude-godoc-examples: true
+      analyze-types: true
+
+    protogetter:
+      replace-first-arg-in-append: true
+
+  exclusions:
+    generated: lax
+    rules:
+      # Exclude some linters from running on test files
+      - path: _test\.go$
+        linters:
+          - gocyclo
+          - cyclop
+          - dupl
+          - gosec
+          - errcheck
+          - goconst
+          - funlen
+          - perfsprint
+
+      # Exclude forbidden identifiers in main.go (may need fmt.Printf for debugging startup)
+      - path: 'cmd/.*/main\.go$'
+        linters:
+          - forbidigo
+
+      # Allow init functions for metrics registration
+      - path: '(metrics|prometheus)\.go$'
+        linters:
+          - gochecknoinits
+
+      # Allow init functions in generated proto files
+      - path: '\.pb\.go$'
+        linters:
+          - gochecknoinits
+          - govet
+          - staticcheck
+          - revive
+
+      # Exclude some staticcheck messages
+      - linters:
+          - staticcheck
+        text: "SA9003:" # Empty branch
+
+formatters:
+  enable:
+    - gci        # Control package import order
+    - gofmt      # Check whether code was gofmt-ed
+    - goimports  # Check import statements are formatted
+
+  settings:
+    gci:
+      sections:
+        - standard # Standard library packages
+        - default  # Imports that are not in standard or custom sections
+        - prefix(procodus.dev/demo-app) # Local packages
+      custom-order: true
+
+    gofmt:
+      simplify: true
+
+    goimports:
+      local-prefixes:
+        - procodus.dev/demo-app
+
+severity:
+  default: error
+  rules:
+    - linters:
+        - dupl
+        - godot
+        - whitespace
+        - misspell
+      severity: warning
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  formats:
+    text:
+      path: stdout
