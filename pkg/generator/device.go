@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+	"procodus.dev/demo-app/pkg/iot"
 )
 
 type IoTDevice struct {
@@ -28,15 +29,6 @@ type IoTDataGenerator struct {
 	noise            float64
 	pressureTrend    float64 // Simulates weather system movement
 	lastPressure     float64
-}
-
-type SensorReading struct {
-	Timestamp    time.Time `json:"timestamp"`
-	DeviceID     string    `json:"device_id"`
-	Temperature  float64   `json:"temperature"`
-	Humidity     float64   `json:"humidity"`
-	Pressure     float64   `json:"pressure"`
-	BatteryLevel float64   `json:"battery_level"`
 }
 
 func NewIoTDevice() *IoTDevice {
@@ -154,7 +146,7 @@ func (g *IoTDataGenerator) GeneratePressure(t time.Time) float64 {
 }
 
 // GenerateCorrelatedReading - generates readings with realistic correlations.
-func (g *IoTDataGenerator) GenerateCorrelatedReading(t time.Time) SensorReading {
+func (g *IoTDataGenerator) GenerateCorrelatedReading(t time.Time) *iot.SensorReading {
 	// Generate temperature first
 	temperature := g.GenerateTemperature(t)
 
@@ -170,9 +162,9 @@ func (g *IoTDataGenerator) GenerateCorrelatedReading(t time.Time) SensorReading 
 	battery := 100 - batteryDrain - rand.Float64()*2            // Add small random variation
 	battery = math.Max(5, math.Min(100, battery))
 
-	return SensorReading{
-		DeviceID:     g.deviceID,
-		Timestamp:    t,
+	return &iot.SensorReading{
+		DeviceId:     g.deviceID,
+		Timestamp:    t.Unix(),
 		Temperature:  math.Round(temperature*100) / 100, // 2 decimal places
 		Humidity:     math.Round(humidity*100) / 100,
 		Pressure:     math.Round(pressure*100) / 100,
