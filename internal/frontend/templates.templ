@@ -1,0 +1,331 @@
+package frontend
+
+import (
+	"procodus.dev/demo-app/pkg/iot"
+	"fmt"
+	"time"
+)
+
+// Base layout template
+templ layout(title string) {
+	<!DOCTYPE html>
+	<html lang="en">
+	<head>
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+		<title>{ title } - IoT Dashboard</title>
+		<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+		<style>
+			* {
+				margin: 0;
+				padding: 0;
+				box-sizing: border-box;
+			}
+			body {
+				font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+				line-height: 1.6;
+				color: #333;
+				background: #f5f5f5;
+			}
+			.container {
+				max-width: 1200px;
+				margin: 0 auto;
+				padding: 20px;
+			}
+			header {
+				background: #2c3e50;
+				color: white;
+				padding: 1rem 0;
+				margin-bottom: 2rem;
+			}
+			header h1 {
+				text-align: center;
+			}
+			nav {
+				text-align: center;
+				margin-top: 1rem;
+			}
+			nav a {
+				color: white;
+				text-decoration: none;
+				margin: 0 1rem;
+				padding: 0.5rem 1rem;
+				border-radius: 4px;
+				transition: background 0.3s;
+			}
+			nav a:hover {
+				background: rgba(255, 255, 255, 0.1);
+			}
+			.card {
+				background: white;
+				border-radius: 8px;
+				padding: 1.5rem;
+				margin-bottom: 1.5rem;
+				box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+			}
+			.card h2 {
+				margin-bottom: 1rem;
+				color: #2c3e50;
+			}
+			.devices-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+				gap: 1.5rem;
+			}
+			.device-card {
+				background: white;
+				border-radius: 8px;
+				padding: 1.5rem;
+				box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+				transition: transform 0.2s, box-shadow 0.2s;
+				cursor: pointer;
+			}
+			.device-card:hover {
+				transform: translateY(-4px);
+				box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+			}
+			.device-card h3 {
+				color: #2c3e50;
+				margin-bottom: 0.5rem;
+			}
+			.device-info {
+				display: grid;
+				grid-template-columns: auto 1fr;
+				gap: 0.5rem;
+				font-size: 0.9rem;
+			}
+			.device-info dt {
+				font-weight: bold;
+				color: #7f8c8d;
+			}
+			.device-info dd {
+				color: #555;
+			}
+			.readings-table {
+				width: 100%;
+				border-collapse: collapse;
+				margin-top: 1rem;
+			}
+			.readings-table th,
+			.readings-table td {
+				padding: 0.75rem;
+				text-align: left;
+				border-bottom: 1px solid #ecf0f1;
+			}
+			.readings-table th {
+				background: #34495e;
+				color: white;
+				font-weight: 600;
+			}
+			.readings-table tr:hover {
+				background: #f8f9fa;
+			}
+			.metric {
+				display: inline-block;
+				padding: 0.25rem 0.5rem;
+				margin: 0.25rem;
+				background: #ecf0f1;
+				border-radius: 4px;
+				font-size: 0.9rem;
+			}
+			.metric-label {
+				font-weight: bold;
+				color: #7f8c8d;
+			}
+			.metric-value {
+				color: #2c3e50;
+			}
+			.status-online {
+				color: #27ae60;
+				font-weight: bold;
+			}
+			.status-offline {
+				color: #e74c3c;
+				font-weight: bold;
+			}
+			.loading {
+				text-align: center;
+				padding: 2rem;
+				color: #7f8c8d;
+			}
+			.btn {
+				display: inline-block;
+				padding: 0.5rem 1rem;
+				background: #3498db;
+				color: white;
+				border: none;
+				border-radius: 4px;
+				cursor: pointer;
+				text-decoration: none;
+				transition: background 0.3s;
+			}
+			.btn:hover {
+				background: #2980b9;
+			}
+			.hero {
+				text-align: center;
+				padding: 3rem 0;
+			}
+			.hero h2 {
+				font-size: 2.5rem;
+				color: #2c3e50;
+				margin-bottom: 1rem;
+			}
+			.hero p {
+				font-size: 1.2rem;
+				color: #7f8c8d;
+				margin-bottom: 2rem;
+			}
+		</style>
+	</head>
+	<body>
+		<header>
+			<div class="container">
+				<h1>IoT Dashboard</h1>
+				<nav>
+					<a href="/">Home</a>
+					<a href="/devices">Devices</a>
+				</nav>
+			</div>
+		</header>
+		<main class="container">
+			{ children... }
+		</main>
+	</body>
+	</html>
+}
+
+// Index page
+templ index() {
+	@layout("Home") {
+		<div class="hero">
+			<h2>Welcome to IoT Dashboard</h2>
+			<p>Monitor and manage your IoT devices in real-time</p>
+			<a href="/devices" class="btn">View Devices</a>
+		</div>
+		<div class="card">
+			<h2>Features</h2>
+			<ul>
+				<li>Real-time device monitoring</li>
+				<li>Historical sensor data visualization</li>
+				<li>Device management and configuration</li>
+				<li>Automatic updates with htmx</li>
+			</ul>
+		</div>
+	}
+}
+
+// Devices page
+templ devices(deviceList []*iot.IoTDevice) {
+	@layout("Devices") {
+		<div class="card">
+			<h2>All Devices</h2>
+			<p>{ fmt.Sprintf("Total devices: %d", len(deviceList)) }</p>
+		</div>
+		<div id="devices-list" hx-get="/api/devices" hx-trigger="every 30s" hx-swap="innerHTML">
+			@devicesList(deviceList)
+		</div>
+	}
+}
+
+// Devices list component (htmx fragment)
+templ devicesList(deviceList []*iot.IoTDevice) {
+	<div class="devices-grid">
+		for _, device := range deviceList {
+			<a href={ templ.URL(fmt.Sprintf("/device/%s", device.GetDeviceId())) } style="text-decoration: none; color: inherit;">
+				<div class="device-card">
+					<h3>{ device.GetDeviceId() }</h3>
+					<dl class="device-info">
+						<dt>Location:</dt>
+						<dd>{ device.GetLocation() }</dd>
+						<dt>MAC Address:</dt>
+						<dd>{ device.GetMacAddress() }</dd>
+						<dt>IP Address:</dt>
+						<dd>{ device.GetIpAddress() }</dd>
+						<dt>Firmware:</dt>
+						<dd>{ device.GetFirmware() }</dd>
+						<dt>Last Seen:</dt>
+						<dd>{ time.Unix(device.GetTimestamp(), 0).Format("2006-01-02 15:04:05") }</dd>
+						<dt>Coordinates:</dt>
+						<dd>{ fmt.Sprintf("%.4f, %.4f", device.GetLatitude(), device.GetLongitude()) }</dd>
+					</dl>
+				</div>
+			</a>
+		}
+	</div>
+	if len(deviceList) == 0 {
+		<div class="card">
+			<p>No devices found. Devices will appear here once they start sending data.</p>
+		</div>
+	}
+}
+
+// Device detail page
+templ device(dev *iot.IoTDevice, readings []*iot.SensorReading) {
+	@layout(dev.GetDeviceId()) {
+		<div class="card">
+			<h2>Device: { dev.GetDeviceId() }</h2>
+			<dl class="device-info">
+				<dt>Location:</dt>
+				<dd>{ dev.GetLocation() }</dd>
+				<dt>MAC Address:</dt>
+				<dd>{ dev.GetMacAddress() }</dd>
+				<dt>IP Address:</dt>
+				<dd>{ dev.GetIpAddress() }</dd>
+				<dt>Firmware:</dt>
+				<dd>{ dev.GetFirmware() }</dd>
+				<dt>Last Seen:</dt>
+				<dd>{ time.Unix(dev.GetTimestamp(), 0).Format("2006-01-02 15:04:05") }</dd>
+				<dt>Coordinates:</dt>
+				<dd>{ fmt.Sprintf("%.4f, %.4f", dev.GetLatitude(), dev.GetLongitude()) }</dd>
+			</dl>
+		</div>
+		<div class="card">
+			<h2>Sensor Readings</h2>
+			<div id="readings-list" hx-get={ fmt.Sprintf("/api/device/%s/readings", dev.GetDeviceId()) } hx-trigger="every 10s" hx-swap="innerHTML">
+				@readingsList(readings, "")
+			</div>
+		</div>
+		<a href="/devices" class="btn">Back to Devices</a>
+	}
+}
+
+// Readings list component (htmx fragment)
+templ readingsList(readings []*iot.SensorReading, nextPageToken string) {
+	if len(readings) > 0 {
+		<table class="readings-table">
+			<thead>
+				<tr>
+					<th>Timestamp</th>
+					<th>Temperature (°C)</th>
+					<th>Humidity (%)</th>
+					<th>Pressure (hPa)</th>
+					<th>Battery (%)</th>
+				</tr>
+			</thead>
+			<tbody>
+				for _, reading := range readings {
+					<tr>
+						<td>{ time.Unix(reading.GetTimestamp(), 0).Format("2006-01-02 15:04:05") }</td>
+						<td>{ fmt.Sprintf("%.2f", reading.GetTemperature()) }</td>
+						<td>{ fmt.Sprintf("%.2f", reading.GetHumidity()) }</td>
+						<td>{ fmt.Sprintf("%.2f", reading.GetPressure()) }</td>
+						<td>{ fmt.Sprintf("%.2f", reading.GetBatteryLevel()) }</td>
+					</tr>
+				}
+			</tbody>
+		</table>
+		if nextPageToken != "" {
+			<div style="text-align: center; margin-top: 1rem;">
+				<button class="btn"
+					hx-get={ fmt.Sprintf("/api/device/%s/readings?page_token=%s", readings[0].GetDeviceId(), nextPageToken) }
+					hx-target="#readings-list"
+					hx-swap="innerHTML">
+					Load More
+				</button>
+			</div>
+		}
+	} else {
+		<p>No sensor readings found for this device.</p>
+	}
+}
