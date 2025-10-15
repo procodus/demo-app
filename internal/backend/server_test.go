@@ -25,16 +25,17 @@ var _ = Describe("Backend Server", func() {
 		Context("with valid configuration", func() {
 			It("should create a server", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -44,16 +45,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should create server with SSL mode enabled", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "require",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "require",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -66,16 +68,17 @@ var _ = Describe("Backend Server", func() {
 
 				for _, port := range ports {
 					config := &backend.ServerConfig{
-						Logger:      logger,
-						DBHost:      "localhost",
-						DBPort:      port,
-						DBUser:      "test",
-						DBPassword:  "password",
-						DBName:      "testdb",
-						DBSSLMode:   "disable",
-						RabbitMQURL: "amqp://localhost:5672",
-						QueueName:   "test-queue",
-						GRPCPort:    9090,
+						Logger:          logger,
+						DBHost:          "localhost",
+						DBPort:          port,
+						DBUser:          "test",
+						DBPassword:      "password",
+						DBName:          "testdb",
+						DBSSLMode:       "disable",
+						RabbitMQURL:     "amqp://localhost:5672",
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						GRPCPort:        9090,
 					}
 
 					server, err := backend.NewServer(config)
@@ -86,16 +89,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should create server with empty password", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -114,16 +118,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when logger is nil", func() {
 				config := &backend.ServerConfig{
-					Logger:      nil,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          nil,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -134,15 +139,16 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when RabbitMQ URL is empty", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "",
-					QueueName:   "test-queue",
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
 				}
 
 				server, err := backend.NewServer(config)
@@ -153,15 +159,16 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when queue name is empty", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "",
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "",
+					DeviceQueueName: "device-queue",
 				}
 
 				server, err := backend.NewServer(config)
@@ -170,18 +177,40 @@ var _ = Describe("Backend Server", func() {
 				Expect(server).To(BeNil())
 			})
 
+			It("should return error when device queue name is empty", func() {
+				config := &backend.ServerConfig{
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "",
+					GRPCPort:        9090,
+				}
+
+				server, err := backend.NewServer(config)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("device queue name"))
+				Expect(server).To(BeNil())
+			})
+
 			It("should return error when database host is empty", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -192,16 +221,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when database port is zero", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      0,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          0,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -212,16 +242,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when database port is negative", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      -1,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          -1,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -232,16 +263,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when database user is empty", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -252,16 +284,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when database name is empty", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    9090,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        9090,
 				}
 
 				server, err := backend.NewServer(config)
@@ -272,16 +305,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when gRPC port is zero", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    0,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        0,
 				}
 
 				server, err := backend.NewServer(config)
@@ -292,16 +326,17 @@ var _ = Describe("Backend Server", func() {
 
 			It("should return error when gRPC port is negative", func() {
 				config := &backend.ServerConfig{
-					Logger:      logger,
-					DBHost:      "localhost",
-					DBPort:      5432,
-					DBUser:      "test",
-					DBPassword:  "password",
-					DBName:      "testdb",
-					DBSSLMode:   "disable",
-					RabbitMQURL: "amqp://localhost:5672",
-					QueueName:   "test-queue",
-					GRPCPort:    -1,
+					Logger:          logger,
+					DBHost:          "localhost",
+					DBPort:          5432,
+					DBUser:          "test",
+					DBPassword:      "password",
+					DBName:          "testdb",
+					DBSSLMode:       "disable",
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					GRPCPort:        -1,
 				}
 
 				server, err := backend.NewServer(config)
@@ -322,16 +357,17 @@ var _ = Describe("Backend Server", func() {
 
 				for _, url := range urls {
 					config := &backend.ServerConfig{
-						Logger:      logger,
-						DBHost:      "localhost",
-						DBPort:      5432,
-						DBUser:      "test",
-						DBPassword:  "password",
-						DBName:      "testdb",
-						DBSSLMode:   "disable",
-						RabbitMQURL: url,
-						QueueName:   "test-queue",
-						GRPCPort:    9090,
+						Logger:          logger,
+						DBHost:          "localhost",
+						DBPort:          5432,
+						DBUser:          "test",
+						DBPassword:      "password",
+						DBName:          "testdb",
+						DBSSLMode:       "disable",
+						RabbitMQURL:     url,
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						GRPCPort:        9090,
 					}
 
 					server, err := backend.NewServer(config)
@@ -350,16 +386,17 @@ var _ = Describe("Backend Server", func() {
 
 				for _, queueName := range queueNames {
 					config := &backend.ServerConfig{
-						Logger:      logger,
-						DBHost:      "localhost",
-						DBPort:      5432,
-						DBUser:      "test",
-						DBPassword:  "password",
-						DBName:      "testdb",
-						DBSSLMode:   "disable",
-						RabbitMQURL: "amqp://localhost:5672",
-						QueueName:   queueName,
-						GRPCPort:    9090,
+						Logger:          logger,
+						DBHost:          "localhost",
+						DBPort:          5432,
+						DBUser:          "test",
+						DBPassword:      "password",
+						DBName:          "testdb",
+						DBSSLMode:       "disable",
+						RabbitMQURL:     "amqp://localhost:5672",
+						QueueName:       queueName,
+						DeviceQueueName: "device-queue",
+						GRPCPort:        9090,
 					}
 
 					server, err := backend.NewServer(config)
@@ -378,16 +415,17 @@ var _ = Describe("Backend Server", func() {
 
 				for _, host := range hosts {
 					config := &backend.ServerConfig{
-						Logger:      logger,
-						DBHost:      host,
-						DBPort:      5432,
-						DBUser:      "test",
-						DBPassword:  "password",
-						DBName:      "testdb",
-						DBSSLMode:   "disable",
-						RabbitMQURL: "amqp://localhost:5672",
-						QueueName:   "test-queue",
-						GRPCPort:    9090,
+						Logger:          logger,
+						DBHost:          host,
+						DBPort:          5432,
+						DBUser:          "test",
+						DBPassword:      "password",
+						DBName:          "testdb",
+						DBSSLMode:       "disable",
+						RabbitMQURL:     "amqp://localhost:5672",
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						GRPCPort:        9090,
 					}
 
 					server, err := backend.NewServer(config)
@@ -406,16 +444,17 @@ var _ = Describe("Backend Server", func() {
 
 				for _, sslMode := range sslModes {
 					config := &backend.ServerConfig{
-						Logger:      logger,
-						DBHost:      "localhost",
-						DBPort:      5432,
-						DBUser:      "test",
-						DBPassword:  "password",
-						DBName:      "testdb",
-						DBSSLMode:   sslMode,
-						RabbitMQURL: "amqp://localhost:5672",
-						QueueName:   "test-queue",
-						GRPCPort:    9090,
+						Logger:          logger,
+						DBHost:          "localhost",
+						DBPort:          5432,
+						DBUser:          "test",
+						DBPassword:      "password",
+						DBName:          "testdb",
+						DBSSLMode:       sslMode,
+						RabbitMQURL:     "amqp://localhost:5672",
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						GRPCPort:        9090,
 					}
 
 					server, err := backend.NewServer(config)
@@ -429,16 +468,17 @@ var _ = Describe("Backend Server", func() {
 	Describe("Server Shutdown", func() {
 		It("should shutdown cleanly with no initialized components", func() {
 			config := &backend.ServerConfig{
-				Logger:      logger,
-				DBHost:      "localhost",
-				DBPort:      5432,
-				DBUser:      "test",
-				DBPassword:  "password",
-				DBName:      "testdb",
-				DBSSLMode:   "disable",
-				RabbitMQURL: "amqp://localhost:5672",
-				QueueName:   "test-queue",
-				GRPCPort:    9090,
+				Logger:          logger,
+				DBHost:          "localhost",
+				DBPort:          5432,
+				DBUser:          "test",
+				DBPassword:      "password",
+				DBName:          "testdb",
+				DBSSLMode:       "disable",
+				RabbitMQURL:     "amqp://localhost:5672",
+				QueueName:       "test-queue",
+				DeviceQueueName: "device-queue",
+				GRPCPort:        9090,
 			}
 
 			server, err := backend.NewServer(config)
@@ -450,16 +490,17 @@ var _ = Describe("Backend Server", func() {
 
 		It("should handle multiple shutdown calls", func() {
 			config := &backend.ServerConfig{
-				Logger:      logger,
-				DBHost:      "localhost",
-				DBPort:      5432,
-				DBUser:      "test",
-				DBPassword:  "password",
-				DBName:      "testdb",
-				DBSSLMode:   "disable",
-				RabbitMQURL: "amqp://localhost:5672",
-				QueueName:   "test-queue",
-				GRPCPort:    9090,
+				Logger:          logger,
+				DBHost:          "localhost",
+				DBPort:          5432,
+				DBUser:          "test",
+				DBPassword:      "password",
+				DBName:          "testdb",
+				DBSSLMode:       "disable",
+				RabbitMQURL:     "amqp://localhost:5672",
+				QueueName:       "test-queue",
+				DeviceQueueName: "device-queue",
+				GRPCPort:        9090,
 			}
 
 			server, err := backend.NewServer(config)
@@ -480,16 +521,17 @@ var _ = Describe("Backend Server", func() {
 			for i := 0; i < 5; i++ {
 				go func(_ int) {
 					config := &backend.ServerConfig{
-						Logger:      logger,
-						DBHost:      "localhost",
-						DBPort:      5432,
-						DBUser:      "test",
-						DBPassword:  "password",
-						DBName:      "testdb",
-						DBSSLMode:   "disable",
-						RabbitMQURL: "amqp://localhost:5672",
-						QueueName:   "test-queue",
-						GRPCPort:    9090,
+						Logger:          logger,
+						DBHost:          "localhost",
+						DBPort:          5432,
+						DBUser:          "test",
+						DBPassword:      "password",
+						DBName:          "testdb",
+						DBSSLMode:       "disable",
+						RabbitMQURL:     "amqp://localhost:5672",
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						GRPCPort:        9090,
 					}
 
 					_, err := backend.NewServer(config)

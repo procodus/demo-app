@@ -19,8 +19,10 @@ type ServerConfig struct {
 	Logger *slog.Logger
 	// RabbitMQURL is the connection string for RabbitMQ
 	RabbitMQURL string
-	// QueueName is the name of the queue to publish to
+	// QueueName is the name of the queue to publish sensor readings to
 	QueueName string
+	// DeviceQueueName is the name of the queue to publish device creation messages to
+	DeviceQueueName string
 	// Interval is the time between data point generation
 	Interval time.Duration
 	// ProducerCount is the number of concurrent producers
@@ -29,11 +31,12 @@ type ServerConfig struct {
 
 // Server manages multiple producer instances.
 type Server struct {
-	logger    *slog.Logger
-	config    *ServerConfig
-	producers []*Producer
-	clients   []*mq.Client
-	wg        sync.WaitGroup
+	logger        *slog.Logger
+	config        *ServerConfig
+	producers     []*Producer
+	clients       []*mq.Client
+	deviceClients []*mq.Client
+	wg            sync.WaitGroup
 }
 
 var (
@@ -57,29 +60,39 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 	}
 
 	s := &Server{
-		config:    cfg,
-		producers: make([]*Producer, 0, cfg.ProducerCount),
-		clients:   make([]*mq.Client, 0, cfg.ProducerCount),
-		logger:    cfg.Logger,
+		config:        cfg,
+		producers:     make([]*Producer, 0, cfg.ProducerCount),
+		clients:       make([]*mq.Client, 0, cfg.ProducerCount),
+		deviceClients: make([]*mq.Client, 0, cfg.ProducerCount),
+		logger:        cfg.Logger,
 	}
 
 	// Create producer instances with their own MQ clients
 	for i := 0; i < cfg.ProducerCount; i++ {
-		// Create MQ client for this producer
+		// Create MQ client for sensor readings
 		client := mq.New(cfg.QueueName, cfg.RabbitMQURL, cfg.Logger.With(
 			slog.String("component", "mq-client"),
 			slog.Int("producer_id", i),
 		))
 
-		// Create producer with the client
-		producer := NewProducer(client)
+		// Create MQ client for device creation messages
+		deviceClient := mq.New(cfg.DeviceQueueName, cfg.RabbitMQURL, cfg.Logger.With(
+			slog.String("component", "device-mq-client"),
+			slog.Int("producer_id", i),
+		))
+
+		// Create producer with both clients
+		producer := NewProducer(client, deviceClient)
 
 		s.clients = append(s.clients, client)
+		s.deviceClients = append(s.deviceClients, deviceClient)
 		s.producers = append(s.producers, producer)
 
 		s.logger.Info("created producer instance",
 			"producer_id", i,
 			"queue", cfg.QueueName,
+			"device_queue", cfg.DeviceQueueName,
+			"device_count", len(producer.IoTDevices),
 		)
 	}
 
@@ -162,6 +175,7 @@ func (s *Server) runProducer(ctx context.Context, id int, producer *Producer) {
 func (s *Server) closeClients() {
 	var wg sync.WaitGroup
 
+	// Close sensor reading clients
 	for i, client := range s.clients {
 		wg.Add(1)
 		go func(id int, c *mq.Client) {
@@ -177,6 +191,24 @@ func (s *Server) closeClients() {
 
 			s.logger.Info("MQ client closed", "producer_id", id)
 		}(i, client)
+	}
+
+	// Close device clients
+	for i, deviceClient := range s.deviceClients {
+		wg.Add(1)
+		go func(id int, c *mq.Client) {
+			defer wg.Done()
+
+			if err := c.Close(); err != nil {
+				s.logger.Error("failed to close device MQ client",
+					"producer_id", id,
+					"error", err,
+				)
+				return
+			}
+
+			s.logger.Info("device MQ client closed", "producer_id", id)
+		}(i, deviceClient)
 	}
 
 	wg.Wait()

@@ -14,8 +14,9 @@ import (
 
 var _ = Describe("IoT Producer", func() {
 	var (
-		logger   *slog.Logger
-		mqClient *mq.Client
+		logger         *slog.Logger
+		mqClient       *mq.Client
+		deviceMQClient *mq.Client
 	)
 
 	BeforeEach(func() {
@@ -27,34 +28,36 @@ var _ = Describe("IoT Producer", func() {
 
 	Describe("NewProducer", func() {
 		BeforeEach(func() {
-			// Create MQ client (won't actually connect in unit tests)
+			// Create MQ clients (won't actually connect in unit tests)
 			mqClient = mq.New("test-queue", "amqp://invalid:5672", logger)
+			deviceMQClient = mq.New("device-queue", "amqp://invalid:5672", logger)
 		})
 
 		AfterEach(func() {
 			_ = mqClient.Close()
+			_ = deviceMQClient.Close()
 		})
 
 		It("should create a producer with a valid MQ client", func() {
-			prod := producer.NewProducer(mqClient)
+			prod := producer.NewProducer(mqClient, deviceMQClient)
 			Expect(prod).NotTo(BeNil())
 		})
 
 		It("should create a producer with IoT devices", func() {
-			prod := producer.NewProducer(mqClient)
+			prod := producer.NewProducer(mqClient, deviceMQClient)
 			Expect(prod.IoTDevices).NotTo(BeEmpty())
 			Expect(len(prod.IoTDevices)).To(BeNumerically(">=", 1))
 			Expect(len(prod.IoTDevices)).To(BeNumerically("<=", 5))
 		})
 
 		It("should create a producer with the provided MQ client", func() {
-			prod := producer.NewProducer(mqClient)
+			prod := producer.NewProducer(mqClient, deviceMQClient)
 			Expect(prod.MQClient).To(Equal(mqClient))
 		})
 
 		It("should create different device sets on multiple calls", func() {
-			prod1 := producer.NewProducer(mqClient)
-			prod2 := producer.NewProducer(mqClient)
+			prod1 := producer.NewProducer(mqClient, deviceMQClient)
+			prod2 := producer.NewProducer(mqClient, deviceMQClient)
 
 			// At least one device should be different (highly likely with UUIDs)
 			allSame := true
@@ -77,11 +80,13 @@ var _ = Describe("IoT Producer", func() {
 
 		BeforeEach(func() {
 			mqClient = mq.New("test-queue", "amqp://invalid:5672", logger)
-			prod = producer.NewProducer(mqClient)
+			deviceMQClient = mq.New("device-queue", "amqp://invalid:5672", logger)
+			prod = producer.NewProducer(mqClient, deviceMQClient)
 		})
 
 		AfterEach(func() {
 			_ = mqClient.Close()
+			_ = deviceMQClient.Close()
 		})
 
 		Context("with disconnected MQ client", func() {
@@ -114,14 +119,17 @@ var _ = Describe("IoT Producer", func() {
 	Describe("Producer Integration", func() {
 		It("should have valid device data structure", func() {
 			mqClient := mq.New("test-queue", "amqp://invalid:5672", logger)
-			defer func() { _ = mqClient.Close() }()
+			deviceMQClient := mq.New("device-queue", "amqp://invalid:5672", logger)
+			defer func() {
+				_ = mqClient.Close()
+				_ = deviceMQClient.Close()
+			}()
 
-			prod := producer.NewProducer(mqClient)
+			prod := producer.NewProducer(mqClient, deviceMQClient)
 
 			// Verify device structure
 			for _, device := range prod.IoTDevices {
 				Expect(device.DeviceID).NotTo(BeEmpty())
-				Expect(device.DeviceType).NotTo(BeEmpty())
 				Expect(device.Location).NotTo(BeEmpty())
 				Expect(device.MacAddress).NotTo(BeEmpty())
 				Expect(device.IPAddress).NotTo(BeEmpty())
@@ -131,9 +139,13 @@ var _ = Describe("IoT Producer", func() {
 
 		It("should maintain consistent device list", func() {
 			mqClient := mq.New("test-queue", "amqp://invalid:5672", logger)
-			defer func() { _ = mqClient.Close() }()
+			deviceMQClient := mq.New("device-queue", "amqp://invalid:5672", logger)
+			defer func() {
+				_ = mqClient.Close()
+				_ = deviceMQClient.Close()
+			}()
 
-			prod := producer.NewProducer(mqClient)
+			prod := producer.NewProducer(mqClient, deviceMQClient)
 			initialCount := len(prod.IoTDevices)
 
 			// Call RandomDataPoint multiple times
@@ -150,9 +162,13 @@ var _ = Describe("IoT Producer", func() {
 	Describe("Concurrent Access", func() {
 		It("should handle concurrent RandomDataPoint calls", func() {
 			mqClient := mq.New("test-queue", "amqp://invalid:5672", logger)
-			defer func() { _ = mqClient.Close() }()
+			deviceMQClient := mq.New("device-queue", "amqp://invalid:5672", logger)
+			defer func() {
+				_ = mqClient.Close()
+				_ = deviceMQClient.Close()
+			}()
 
-			prod := producer.NewProducer(mqClient)
+			prod := producer.NewProducer(mqClient, deviceMQClient)
 			ctx := context.Background()
 
 			// Launch multiple goroutines

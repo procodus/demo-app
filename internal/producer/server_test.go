@@ -28,11 +28,12 @@ var _ = Describe("Producer Server", func() {
 		Context("with valid configuration", func() {
 			It("should create a server", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 5,
-					Interval:      5 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   5,
+					Interval:        5 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -42,11 +43,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should create server with minimum producer count", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 1,
-					Interval:      1 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   1,
+					Interval:        1 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -56,11 +58,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should create server with large producer count", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 20,
-					Interval:      1 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   20,
+					Interval:        1 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -70,11 +73,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should create server with small interval", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 2,
-					Interval:      100 * time.Millisecond,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   2,
+					Interval:        100 * time.Millisecond,
 				}
 
 				server, err := producer.NewServer(config)
@@ -86,11 +90,12 @@ var _ = Describe("Producer Server", func() {
 		Context("with invalid configuration", func() {
 			It("should return error when producer count is zero", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 0,
-					Interval:      5 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   0,
+					Interval:        5 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -101,11 +106,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should return error when producer count is negative", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: -1,
-					Interval:      5 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   -1,
+					Interval:        5 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -116,11 +122,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should return error when interval is zero", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 5,
-					Interval:      0,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   5,
+					Interval:        0,
 				}
 
 				server, err := producer.NewServer(config)
@@ -131,11 +138,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should return error when interval is negative", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 5,
-					Interval:      -1 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   5,
+					Interval:        -1 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -146,11 +154,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should return error when logger is nil", func() {
 				config := &producer.ServerConfig{
-					Logger:        nil,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 5,
-					Interval:      5 * time.Second,
+					Logger:          nil,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   5,
+					Interval:        5 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -171,11 +180,12 @@ var _ = Describe("Producer Server", func() {
 
 				for _, url := range urls {
 					config := &producer.ServerConfig{
-						Logger:        logger,
-						RabbitMQURL:   url,
-						QueueName:     "test-queue",
-						ProducerCount: 1,
-						Interval:      1 * time.Second,
+						Logger:          logger,
+						RabbitMQURL:     url,
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						ProducerCount:   1,
+						Interval:        1 * time.Second,
 					}
 
 					server, err := producer.NewServer(config)
@@ -194,11 +204,12 @@ var _ = Describe("Producer Server", func() {
 
 				for _, queueName := range queueNames {
 					config := &producer.ServerConfig{
-						Logger:        logger,
-						RabbitMQURL:   "amqp://localhost:5672",
-						QueueName:     queueName,
-						ProducerCount: 1,
-						Interval:      1 * time.Second,
+						Logger:          logger,
+						RabbitMQURL:     "amqp://localhost:5672",
+						QueueName:       queueName,
+						DeviceQueueName: "device-queue",
+						ProducerCount:   1,
+						Interval:        1 * time.Second,
 					}
 
 					server, err := producer.NewServer(config)
@@ -213,11 +224,12 @@ var _ = Describe("Producer Server", func() {
 		Context("with context cancellation", func() {
 			It("should shutdown when context is canceled", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672", // Invalid to prevent actual connection
-					QueueName:     "test-queue",
-					ProducerCount: 2,
-					Interval:      100 * time.Millisecond,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672", // Invalid to prevent actual connection
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   2,
+					Interval:        100 * time.Millisecond,
 				}
 
 				server, err := producer.NewServer(config)
@@ -237,11 +249,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should shutdown immediately with pre-canceled context", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 2,
-					Interval:      1 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   2,
+					Interval:        1 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -261,11 +274,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should handle multiple consecutive runs", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 1,
-					Interval:      100 * time.Millisecond,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   1,
+					Interval:        100 * time.Millisecond,
 				}
 
 				server, err := producer.NewServer(config)
@@ -298,11 +312,12 @@ var _ = Describe("Producer Server", func() {
 		Context("with different intervals", func() {
 			It("should run with fast interval", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 1,
-					Interval:      50 * time.Millisecond,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   1,
+					Interval:        50 * time.Millisecond,
 				}
 
 				server, err := producer.NewServer(config)
@@ -321,11 +336,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should run with slow interval", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 1,
-					Interval:      10 * time.Second,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   1,
+					Interval:        10 * time.Second,
 				}
 
 				server, err := producer.NewServer(config)
@@ -347,11 +363,12 @@ var _ = Describe("Producer Server", func() {
 		Context("with multiple producers", func() {
 			It("should manage multiple producer goroutines", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 5,
-					Interval:      100 * time.Millisecond,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   5,
+					Interval:        100 * time.Millisecond,
 				}
 
 				server, err := producer.NewServer(config)
@@ -370,11 +387,12 @@ var _ = Describe("Producer Server", func() {
 
 			It("should manage many producer goroutines", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://invalid:5672",
-					QueueName:     "test-queue",
-					ProducerCount: 20,
-					Interval:      100 * time.Millisecond,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://invalid:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					ProducerCount:   20,
+					Interval:        100 * time.Millisecond,
 				}
 
 				server, err := producer.NewServer(config)
@@ -396,11 +414,12 @@ var _ = Describe("Producer Server", func() {
 	Describe("Server Shutdown", func() {
 		It("should shutdown cleanly", func() {
 			config := &producer.ServerConfig{
-				Logger:        logger,
-				RabbitMQURL:   "amqp://invalid:5672",
-				QueueName:     "test-queue",
-				ProducerCount: 2,
-				Interval:      1 * time.Second,
+				Logger:          logger,
+				RabbitMQURL:     "amqp://invalid:5672",
+				QueueName:       "test-queue",
+				DeviceQueueName: "device-queue",
+				ProducerCount:   2,
+				Interval:        1 * time.Second,
 			}
 
 			server, err := producer.NewServer(config)
@@ -412,11 +431,12 @@ var _ = Describe("Producer Server", func() {
 
 		It("should handle multiple shutdown calls", func() {
 			config := &producer.ServerConfig{
-				Logger:        logger,
-				RabbitMQURL:   "amqp://invalid:5672",
-				QueueName:     "test-queue",
-				ProducerCount: 2,
-				Interval:      1 * time.Second,
+				Logger:          logger,
+				RabbitMQURL:     "amqp://invalid:5672",
+				QueueName:       "test-queue",
+				DeviceQueueName: "device-queue",
+				ProducerCount:   2,
+				Interval:        1 * time.Second,
 			}
 
 			server, err := producer.NewServer(config)
@@ -435,11 +455,12 @@ var _ = Describe("Producer Server", func() {
 		Context("field ordering", func() {
 			It("should have logger as first field for memory alignment", func() {
 				config := &producer.ServerConfig{
-					Logger:        logger,
-					RabbitMQURL:   "amqp://localhost:5672",
-					QueueName:     "test-queue",
-					Interval:      5 * time.Second,
-					ProducerCount: 5,
+					Logger:          logger,
+					RabbitMQURL:     "amqp://localhost:5672",
+					QueueName:       "test-queue",
+					DeviceQueueName: "device-queue",
+					Interval:        5 * time.Second,
+					ProducerCount:   5,
 				}
 
 				Expect(config.Logger).NotTo(BeNil())
@@ -450,11 +471,12 @@ var _ = Describe("Producer Server", func() {
 	Describe("Error Constants", func() {
 		It("should return consistent error messages", func() {
 			config := &producer.ServerConfig{
-				Logger:        nil,
-				RabbitMQURL:   "amqp://localhost:5672",
-				QueueName:     "test-queue",
-				ProducerCount: 0,
-				Interval:      0,
+				Logger:          nil,
+				RabbitMQURL:     "amqp://localhost:5672",
+				QueueName:       "test-queue",
+				DeviceQueueName: "device-queue",
+				ProducerCount:   0,
+				Interval:        0,
 			}
 
 			_, err := producer.NewServer(config)
@@ -469,11 +491,12 @@ var _ = Describe("Producer Server", func() {
 			for i := 0; i < 5; i++ {
 				go func(_ int) {
 					config := &producer.ServerConfig{
-						Logger:        logger,
-						RabbitMQURL:   "amqp://invalid:5672",
-						QueueName:     "test-queue",
-						ProducerCount: 2,
-						Interval:      1 * time.Second,
+						Logger:          logger,
+						RabbitMQURL:     "amqp://invalid:5672",
+						QueueName:       "test-queue",
+						DeviceQueueName: "device-queue",
+						ProducerCount:   2,
+						Interval:        1 * time.Second,
 					}
 
 					_, err := producer.NewServer(config)

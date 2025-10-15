@@ -18,11 +18,12 @@ import (
 
 // Server represents the backend server that manages database, message queue, and gRPC.
 type Server struct {
-	logger     *slog.Logger
-	db         *gorm.DB
-	consumer   *Consumer
-	grpcServer *grpc.Server
-	config     *ServerConfig
+	logger         *slog.Logger
+	db             *gorm.DB
+	consumer       *Consumer
+	deviceConsumer *DeviceConsumer
+	grpcServer     *grpc.Server
+	config         *ServerConfig
 }
 
 // ServerConfig holds the configuration for the Server.
@@ -37,8 +38,9 @@ type ServerConfig struct {
 	DBSSLMode  string
 
 	// RabbitMQ configuration
-	RabbitMQURL string
-	QueueName   string
+	RabbitMQURL     string
+	QueueName       string
+	DeviceQueueName string
 
 	// gRPC configuration
 	GRPCPort int
@@ -63,6 +65,10 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 
 	if cfg.QueueName == "" {
 		return nil, errors.New("queue name cannot be empty")
+	}
+
+	if cfg.DeviceQueueName == "" {
+		return nil, errors.New("device queue name cannot be empty")
 	}
 
 	if cfg.DBHost == "" {
@@ -141,6 +147,25 @@ func (s *Server) Run(ctx context.Context) error {
 		return fmt.Errorf("failed to start consumer: %w", err)
 	}
 
+	// Initialize device consumer
+	deviceConsumerCfg := &DeviceConsumerConfig{
+		Logger:      s.logger,
+		DB:          s.db,
+		RabbitMQURL: s.config.RabbitMQURL,
+		QueueName:   s.config.DeviceQueueName,
+	}
+
+	deviceConsumer, err := NewDeviceConsumer(deviceConsumerCfg)
+	if err != nil {
+		return fmt.Errorf("failed to initialize device consumer: %w", err)
+	}
+	s.deviceConsumer = deviceConsumer
+
+	// Start device consumer
+	if err := s.deviceConsumer.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start device consumer: %w", err)
+	}
+
 	// Initialize gRPC service
 	iotService, err := NewIoTService(s.logger, s.db)
 	if err != nil {
@@ -203,12 +228,25 @@ func (s *Server) Shutdown() error {
 		s.logger.Info("gRPC server stopped")
 	}
 
+	// Stop device consumer
+	if s.deviceConsumer != nil {
+		s.logger.Info("stopping device consumer")
+		if err := s.deviceConsumer.Stop(); err != nil {
+			s.logger.Error("failed to stop device consumer", "error", err)
+			shutdownErr = fmt.Errorf("device consumer shutdown error: %w", err)
+		}
+	}
+
 	// Stop consumer
 	if s.consumer != nil {
 		s.logger.Info("stopping consumer")
 		if err := s.consumer.Stop(); err != nil {
 			s.logger.Error("failed to stop consumer", "error", err)
-			shutdownErr = fmt.Errorf("consumer shutdown error: %w", err)
+			if shutdownErr != nil {
+				shutdownErr = fmt.Errorf("%w; consumer shutdown error: %w", shutdownErr, err)
+			} else {
+				shutdownErr = fmt.Errorf("consumer shutdown error: %w", err)
+			}
 		}
 	}
 
