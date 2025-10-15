@@ -12,7 +12,6 @@ import (
 type IoTDevice struct {
 	Timestamp  time.Time
 	DeviceID   string  `fake:"{uuid}"`
-	DeviceType string  `fake:"{randomstring:[temperature,humidity,pressure,motion]}"`
 	Location   string  `fake:"{city}, {state}"`
 	MacAddress string  `fake:"{macaddress}"`
 	IPAddress  string  `fake:"{ipv4address}"`

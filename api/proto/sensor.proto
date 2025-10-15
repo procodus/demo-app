@@ -10,3 +10,45 @@ message SensorReading {
   double pressure = 5;
   double battery_level = 6;
 }
+
+message GetSensorReadingByDeviceIDRequest {
+  string device_id = 1;
+  string page_token = 2;
+}
+
+message GetSensorReadingByDeviceIDResponse {
+  repeated SensorReading reading = 1;
+  string next_page_token = 2;
+}
+
+message IoTDevice {
+  string device_id = 1;
+  int64 timestamp = 2;
+  string location = 3;
+  string mac_address = 4;
+  string ip_address = 5;
+  string firmware = 6;
+  float latitude = 7;
+  float longitude = 8;
+}
+
+message GetAllDevicesResponse {
+  repeated IoTDevice devices = 1;
+}
+
+message GetAllDevicesRequest {}
+
+message GetDeviceByIDRequest {
+  string device_id = 1;
+}
+
+message GetDeviceByIDResponse {
+  IoTDevice device = 1;
+}
+
+
+service IoTService {
+  rpc GetAllDevice(GetAllDevicesRequest) returns (GetAllDevicesResponse){};
+  rpc GetDevice(GetDeviceByIDRequest) returns (GetDeviceByIDResponse){};
+  rpc GetSensorReadingByDeviceID(GetSensorReadingByDeviceIDRequest) returns (GetSensorReadingByDeviceIDResponse){};
+}
