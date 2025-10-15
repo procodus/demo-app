@@ -11,16 +11,15 @@ import (
 // SensorReading represents a sensor reading stored in the database.
 // This model maps to the IoT sensor data received from RabbitMQ.
 type SensorReading struct {
-	Timestamp    time.Time  `gorm:"index:idx_device_timestamp;index:idx_timestamp;not null"`
-	CreatedAt    time.Time  `gorm:"autoCreateTime"`
-	UpdatedAt    time.Time  `gorm:"autoUpdateTime"`
-	DeviceID     string     `gorm:"index:idx_device_timestamp;not null"`
-	Device       *IoTDevice `gorm:"foreignKey:DeviceID;references:DeviceID"`
-	Temperature  float64    `gorm:"not null"`
-	Humidity     float64    `gorm:"not null"`
-	Pressure     float64    `gorm:"not null"`
-	BatteryLevel float64    `gorm:"not null"`
-	ID           uint       `gorm:"primaryKey"`
+	Timestamp    time.Time `gorm:"index:idx_device_timestamp;index:idx_timestamp;not null"`
+	CreatedAt    time.Time `gorm:"autoCreateTime"`
+	UpdatedAt    time.Time `gorm:"autoUpdateTime"`
+	DeviceID     string    `gorm:"index:idx_device_timestamp;not null"`
+	Temperature  float64   `gorm:"not null"`
+	Humidity     float64   `gorm:"not null"`
+	Pressure     float64   `gorm:"not null"`
+	BatteryLevel float64   `gorm:"not null"`
+	ID           uint      `gorm:"primaryKey"`
 }
 
 // TableName specifies the table name for SensorReading model.

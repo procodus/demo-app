@@ -6,17 +6,18 @@ import (
 	"log/slog"
 	"os"
 	"testing"
-	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/testcontainers/testcontainers-go"
+
+	e2econtainers "procodus.dev/demo-app/test/e2e/testcontainers"
 )
 
 var (
-	containerID  string
-	rabbitmqURL  string
-	testLogger   *slog.Logger
-	dockerExists bool
+	rabbitmqURL string
+	testLogger  *slog.Logger
+	mqContainer testcontainers.Container
 )
 
 func TestMQE2E(t *testing.T) {
@@ -32,58 +33,35 @@ var _ = BeforeSuite(func() {
 		Level: slog.LevelInfo,
 	}))
 
-	// Check if Docker is available
-	if !isDockerAvailable(ctx) {
-		Skip("Docker is not available - skipping E2E tests")
-		return
-	}
-	dockerExists = true
-
-	// Clean up any orphaned test containers first
-	testLogger.Info("cleaning up orphaned containers")
-	_ = cleanupOrphanedContainers(ctx)
-
 	testLogger.Info("starting RabbitMQ container for E2E tests")
 
-	// Start RabbitMQ container
+	// Start RabbitMQ container using helper
 	var err error
-	containerID, rabbitmqURL, err = startRabbitMQ(ctx)
+	mqContainer, rabbitmqURL, err = e2econtainers.StartRabbitMQ(ctx, &e2econtainers.RabbitMQConfig{
+		User:          "guest",
+		Password:      "guest",
+		ContainerName: "rabbitmq-e2e-test",
+	})
+
 	if err != nil {
 		Fail(fmt.Sprintf("Failed to start RabbitMQ container: %v", err))
 	}
 
 	testLogger.Info("RabbitMQ container started",
-		"container_id", containerID,
+		"container_id", mqContainer.GetContainerID(),
 		"url", rabbitmqURL,
 	)
-
-	// Wait for RabbitMQ to be ready
-	testLogger.Info("waiting for RabbitMQ to be ready")
-	if err := waitForRabbitMQ(ctx, rabbitmqURL, 30*time.Second); err != nil {
-		// Clean up on failure
-		_ = stopRabbitMQ(ctx, containerID)
-		Fail(fmt.Sprintf("RabbitMQ did not become ready: %v", err))
-	}
 
 	testLogger.Info("RabbitMQ is ready for testing")
 })
 
 var _ = AfterSuite(func() {
-	if !dockerExists {
-		return
-	}
-
-	if containerID != "" {
+	if mqContainer != nil {
 		ctx := context.Background()
-		testLogger.Info("stopping RabbitMQ container", "container_id", containerID)
-
-		if err := stopRabbitMQ(ctx, containerID); err != nil {
-			testLogger.Error("failed to stop RabbitMQ container",
-				"container_id", containerID,
-				"error", err,
-			)
-		} else {
-			testLogger.Info("RabbitMQ container stopped and removed")
+		testLogger.Info("stopping RabbitMQ container", "container_id", mqContainer.GetContainerID())
+		err := mqContainer.Terminate(ctx)
+		if err != nil {
+			testLogger.Error("failed to stop RabbitMQ container", "error", err)
 		}
 	}
 })

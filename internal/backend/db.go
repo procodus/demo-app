@@ -86,12 +86,14 @@ func NewDB(cfg *DBConfig) (*gorm.DB, error) {
 func runMigrations(db *gorm.DB, logger *slog.Logger) error {
 	logger.Info("running database migrations")
 
-	// Auto-migrate all models
-	if err := db.AutoMigrate(
-		&SensorReading{},
-		&IoTDevice{},
-	); err != nil {
-		return fmt.Errorf("auto-migration failed: %w", err)
+	// Auto-migrate models in order: parent tables first, then child tables
+	// IoTDevice must be migrated before SensorReading due to foreign key constraint
+	if err := db.AutoMigrate(&IoTDevice{}); err != nil {
+		return fmt.Errorf("auto-migration failed for IoTDevice: %w", err)
+	}
+
+	if err := db.AutoMigrate(&SensorReading{}); err != nil {
+		return fmt.Errorf("auto-migration failed for SensorReading: %w", err)
 	}
 
 	logger.Info("database migrations completed successfully")

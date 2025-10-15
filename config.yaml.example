@@ -1,0 +1,48 @@
+# Demo App Configuration Example
+# This file can be placed at:
+# - ./config.yaml (current directory)
+# - /etc/demo-app/config.yaml
+
+# Global logging configuration
+log:
+  level: info  # debug, info, warn, error
+
+# Backend service configuration
+backend:
+  db:
+    host: localhost
+    port: 5432
+    user: postgres
+    password: postgres
+    name: iot
+    sslmode: disable
+  rabbitmq:
+    url: amqp://localhost:5672
+    queue_name: sensor-data
+    device_queue_name: device-data
+  grpc:
+    port: 9090
+
+# Frontend service configuration
+frontend:
+  http:
+    port: 8080
+  backend:
+    addr: localhost:9090
+
+# Generator service configuration
+generator:
+  rabbitmq:
+    url: amqp://localhost:5672
+    queue_name: sensor-data
+    device_queue_name: device-data
+  producer_count: 5
+  interval: 5s
+
+# Environment variables can override any of these settings:
+# DEMO_APP_LOG_LEVEL=debug
+# DEMO_APP_BACKEND_DB_HOST=postgres.example.com
+# DEMO_APP_BACKEND_DB_PORT=5432
+# DEMO_APP_BACKEND_DB_PASSWORD=secretpassword
+# DEMO_APP_FRONTEND_HTTP_PORT=3000
+# DEMO_APP_GENERATOR_PRODUCER_COUNT=10

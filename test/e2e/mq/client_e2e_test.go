@@ -17,10 +17,6 @@ var _ = Describe("MQ Client E2E", func() {
 	)
 
 	BeforeEach(func() {
-		if !dockerExists {
-			Skip("Docker not available")
-		}
-
 		// Generate unique queue name for this test
 		queueName = "test-queue-" + time.Now().Format("20060102-150405.000")
 	})
