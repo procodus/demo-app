@@ -19,7 +19,7 @@ import (
 type DeviceConsumer struct {
 	logger   *slog.Logger
 	db       *gorm.DB
-	mqClient *mq.Client
+	mqClient mq.ClientInterface
 	done     chan struct{}
 }
 

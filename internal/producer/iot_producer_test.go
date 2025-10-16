@@ -2,40 +2,30 @@ package producer_test
 
 import (
 	"context"
-	"log/slog"
-	"os"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
 	"procodus.dev/demo-app/internal/producer"
 	"procodus.dev/demo-app/pkg/mq"
+	"procodus.dev/demo-app/pkg/mq/mock"
 )
 
 var _ = Describe("IoT Producer", func() {
 	var (
-		logger         *slog.Logger
-		mqClient       *mq.Client
-		deviceMQClient *mq.Client
+		mqClient       mq.ClientInterface
+		deviceMQClient mq.ClientInterface
 	)
-
-	BeforeEach(func() {
-		// Create a logger that discards output for tests
-		logger = slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{
-			Level: slog.LevelError,
-		}))
-	})
 
 	Describe("NewProducer", func() {
 		BeforeEach(func() {
-			// Create MQ clients (won't actually connect in unit tests)
-			mqClient = mq.New("test-queue", "amqp://invalid:5672", logger)
-			deviceMQClient = mq.New("device-queue", "amqp://invalid:5672", logger)
+			// Create mock MQ clients for unit tests
+			mqClient = mock.NewMockClient()
+			deviceMQClient = mock.NewMockClient()
 		})
 
 		AfterEach(func() {
-			_ = mqClient.Close()
-			_ = deviceMQClient.Close()
+			// No cleanup needed for mocks
 		})
 
 		It("should create a producer with a valid MQ client", func() {
@@ -79,21 +69,20 @@ var _ = Describe("IoT Producer", func() {
 		var prod *producer.Producer
 
 		BeforeEach(func() {
-			mqClient = mq.New("test-queue", "amqp://invalid:5672", logger)
-			deviceMQClient = mq.New("device-queue", "amqp://invalid:5672", logger)
+			mqClient = mock.NewMockClient()
+			deviceMQClient = mock.NewMockClient()
 			prod = producer.NewProducer(mqClient, deviceMQClient)
 		})
 
-		AfterEach(func() {
-			_ = mqClient.Close()
-			_ = deviceMQClient.Close()
-		})
-
-		Context("with disconnected MQ client", func() {
-			It("should return an error", func() {
+		Context("with successful push", func() {
+			It("should successfully push data", func() {
 				ctx := context.Background()
 				err := prod.RandomDataPoint(ctx)
-				Expect(err).To(HaveOccurred())
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify Push was called
+				mockClient := mqClient.(*mock.MockClient)
+				Expect(mockClient.PushCalls).To(HaveLen(1))
 			})
 		})
 
@@ -101,8 +90,12 @@ var _ = Describe("IoT Producer", func() {
 			It("should accept a context parameter", func() {
 				ctx := context.Background()
 				err := prod.RandomDataPoint(ctx)
-				// Will error because not connected, but that's ok
-				Expect(err).NotTo(BeNil())
+				Expect(err).NotTo(HaveOccurred())
+
+				// Verify context was passed through
+				mockClient := mqClient.(*mock.MockClient)
+				Expect(mockClient.PushCalls).To(HaveLen(1))
+				Expect(mockClient.PushCalls[0].Ctx).To(Equal(ctx))
 			})
 
 			It("should accept a canceled context", func() {
@@ -110,22 +103,21 @@ var _ = Describe("IoT Producer", func() {
 				cancel() // Cancel immediately
 
 				err := prod.RandomDataPoint(ctx)
-				// Will error because not connected
-				Expect(err).NotTo(BeNil())
+				// Should pass context through even if canceled
+				Expect(err).NotTo(HaveOccurred())
+
+				mockClient := mqClient.(*mock.MockClient)
+				Expect(mockClient.PushCalls).To(HaveLen(1))
 			})
 		})
 	})
 
 	Describe("Producer Integration", func() {
 		It("should have valid device data structure", func() {
-			mqClient := mq.New("test-queue", "amqp://invalid:5672", logger)
-			deviceMQClient := mq.New("device-queue", "amqp://invalid:5672", logger)
-			defer func() {
-				_ = mqClient.Close()
-				_ = deviceMQClient.Close()
-			}()
+			mockClient := mock.NewMockClient()
+			mockDeviceClient := mock.NewMockClient()
 
-			prod := producer.NewProducer(mqClient, deviceMQClient)
+			prod := producer.NewProducer(mockClient, mockDeviceClient)
 
 			// Verify device structure
 			for _, device := range prod.IoTDevices {
@@ -138,44 +130,41 @@ var _ = Describe("IoT Producer", func() {
 		})
 
 		It("should maintain consistent device list", func() {
-			mqClient := mq.New("test-queue", "amqp://invalid:5672", logger)
-			deviceMQClient := mq.New("device-queue", "amqp://invalid:5672", logger)
-			defer func() {
-				_ = mqClient.Close()
-				_ = deviceMQClient.Close()
-			}()
+			mockClient := mock.NewMockClient()
+			mockDeviceClient := mock.NewMockClient()
 
-			prod := producer.NewProducer(mqClient, deviceMQClient)
+			prod := producer.NewProducer(mockClient, mockDeviceClient)
 			initialCount := len(prod.IoTDevices)
 
 			// Call RandomDataPoint multiple times
 			ctx := context.Background()
 			for i := 0; i < 5; i++ {
-				_ = prod.RandomDataPoint(ctx)
+				err := prod.RandomDataPoint(ctx)
+				Expect(err).NotTo(HaveOccurred())
 			}
 
 			// Device count should remain the same
 			Expect(len(prod.IoTDevices)).To(Equal(initialCount))
+
+			// Verify Push was called 5 times
+			Expect(mockClient.PushCalls).To(HaveLen(5))
 		})
 	})
 
 	Describe("Concurrent Access", func() {
 		It("should handle concurrent RandomDataPoint calls", func() {
-			mqClient := mq.New("test-queue", "amqp://invalid:5672", logger)
-			deviceMQClient := mq.New("device-queue", "amqp://invalid:5672", logger)
-			defer func() {
-				_ = mqClient.Close()
-				_ = deviceMQClient.Close()
-			}()
+			mockClient := mock.NewMockClient()
+			mockDeviceClient := mock.NewMockClient()
 
-			prod := producer.NewProducer(mqClient, deviceMQClient)
+			prod := producer.NewProducer(mockClient, mockDeviceClient)
 			ctx := context.Background()
 
 			// Launch multiple goroutines
 			done := make(chan bool, 5)
 			for i := 0; i < 5; i++ {
 				go func() {
-					_ = prod.RandomDataPoint(ctx)
+					err := prod.RandomDataPoint(ctx)
+					Expect(err).NotTo(HaveOccurred())
 					done <- true
 				}()
 			}
@@ -184,6 +173,9 @@ var _ = Describe("IoT Producer", func() {
 			for i := 0; i < 5; i++ {
 				Eventually(done).Should(Receive())
 			}
+
+			// Verify all 5 calls were made (MockClient is thread-safe)
+			Expect(mockClient.PushCalls).To(HaveLen(5))
 		})
 	})
 })

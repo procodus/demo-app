@@ -36,12 +36,25 @@ const (
 
 	// When resending messages the server didn't confirm.
 	resendDelay = 5 * time.Second
+
+	// Initial backoff delay for Push retries.
+	initialBackoff = 100 * time.Millisecond
+
+	// Maximum backoff delay for Push retries.
+	maxBackoff = 10 * time.Second
+
+	// Backoff multiplier for exponential backoff.
+	backoffMultiplier = 2
+
+	// Maximum number of retry attempts before giving up.
+	maxRetryAttempts = 5
 )
 
 var (
-	errNotConnected  = errors.New("not connected to a server")
-	errAlreadyClosed = errors.New("already closed: not connected to the server")
-	errShutdown      = errors.New("client is shutting down")
+	errNotConnected       = errors.New("not connected to a server")
+	errAlreadyClosed      = errors.New("already closed: not connected to the server")
+	errShutdown           = errors.New("client is shutting down")
+	errMaxRetriesExceeded = errors.New("maximum retry attempts exceeded")
 )
 
 // New creates a new consumer state instance, and automatically
@@ -186,28 +199,108 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 // Push will push data onto the queue, and wait for a confirmation.
 // This will block until the server sends a confirmation. Errors are
 // only returned if the push action itself fails, see UnsafePush.
-func (client *Client) Push(data []byte) error {
-	client.m.Lock()
-	if !client.isReady {
-		client.m.Unlock()
-		return errNotConnected
-	}
-	client.m.Unlock()
+// The context is used for cancellation and timeout.
+// Uses exponential backoff retry when the client is not connected,
+// allowing time for automatic reconnection to succeed.
+// After maxRetryAttempts (5) failed attempts, returns a fatal error.
+func (client *Client) Push(ctx context.Context, data []byte) error {
+	backoff := initialBackoff
+	retryCount := 0
+
 	for {
-		err := client.UnsafePush(data)
-		if err != nil {
-			client.errlog.Error("push failed. Retrying...", "error", err)
+		// Check if max retries exceeded
+		if retryCount >= maxRetryAttempts {
+			client.errlog.Error("maximum retry attempts exceeded",
+				"retry_count", retryCount,
+				"max_attempts", maxRetryAttempts)
+			return errMaxRetriesExceeded
+		}
+
+		// Check if connected
+		client.m.Lock()
+		isReady := client.isReady
+		client.m.Unlock()
+
+		if !isReady {
+			// Not connected - use exponential backoff to wait for reconnection
+			client.infolog.Info("not connected, waiting for reconnection",
+				"backoff", backoff,
+				"retry_count", retryCount)
+
 			select {
+			case <-ctx.Done():
+				return ctx.Err()
 			case <-client.done:
 				return errShutdown
-			case <-time.After(resendDelay):
+			case <-time.After(backoff):
+				// Increase backoff exponentially
+				backoff *= backoffMultiplier
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+				retryCount++
+				continue
 			}
-			continue
 		}
-		confirm := <-client.notifyConfirm
-		if confirm.Ack {
-			client.infolog.Info("push confirmed", "delivery_tag", confirm.DeliveryTag)
-			return nil
+
+		// Attempt to push
+		err := client.UnsafePush(ctx, data)
+		if err != nil {
+			client.errlog.Error("push failed, retrying with backoff",
+				"error", err,
+				"backoff", backoff,
+				"retry_count", retryCount)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-client.done:
+				return errShutdown
+			case <-time.After(backoff):
+				// Increase backoff exponentially
+				backoff *= backoffMultiplier
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+				retryCount++
+				continue
+			}
+		}
+
+		// Wait for confirmation
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case confirm := <-client.notifyConfirm:
+			if confirm.Ack {
+				if retryCount > 0 {
+					client.infolog.Info("push confirmed after retries",
+						"delivery_tag", confirm.DeliveryTag,
+						"retry_count", retryCount)
+				} else {
+					client.infolog.Info("push confirmed", "delivery_tag", confirm.DeliveryTag)
+				}
+				return nil
+			}
+			// Negative acknowledgment - retry with backoff
+			client.errlog.Warn("push not acknowledged, retrying",
+				"delivery_tag", confirm.DeliveryTag,
+				"backoff", backoff)
+
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-client.done:
+				return errShutdown
+			case <-time.After(backoff):
+				// Increase backoff exponentially
+				backoff *= backoffMultiplier
+				if backoff > maxBackoff {
+					backoff = maxBackoff
+				}
+				retryCount++
+				continue
+			}
 		}
 	}
 }
@@ -215,17 +308,14 @@ func (client *Client) Push(data []byte) error {
 // UnsafePush will push to the queue without checking for
 // confirmation. It returns an error if it fails to connect.
 // No guarantees are provided for whether the server will
-// receive the message.
-func (client *Client) UnsafePush(data []byte) error {
+// receive the message. The context is used for cancellation and timeout.
+func (client *Client) UnsafePush(ctx context.Context, data []byte) error {
 	client.m.Lock()
 	if !client.isReady {
 		client.m.Unlock()
 		return errNotConnected
 	}
 	client.m.Unlock()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 
 	return client.channel.PublishWithContext(
 		ctx,

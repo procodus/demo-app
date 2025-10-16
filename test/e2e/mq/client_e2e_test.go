@@ -2,6 +2,7 @@
 package mq
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -56,7 +57,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 		It("should publish a message successfully", func() {
 			message := []byte("test message")
-			err := client.Push(message)
+			err := client.Push(context.Background(), message)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -68,7 +69,7 @@ var _ = Describe("MQ Client E2E", func() {
 			}
 
 			for _, msg := range messages {
-				err := client.Push([]byte(msg))
+				err := client.Push(context.Background(), []byte(msg))
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
@@ -80,21 +81,21 @@ var _ = Describe("MQ Client E2E", func() {
 				largeMessage[i] = byte(i % 256)
 			}
 
-			err := client.Push(largeMessage)
+			err := client.Push(context.Background(), largeMessage)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("should handle rapid successive publishes", func() {
 			for i := 0; i < 10; i++ {
 				message := []byte("rapid message")
-				err := client.Push(message)
+				err := client.Push(context.Background(), message)
 				Expect(err).NotTo(HaveOccurred())
 			}
 		})
 
 		It("should use UnsafePush without blocking", func() {
 			message := []byte("unsafe message")
-			err := client.UnsafePush(message)
+			err := client.UnsafePush(context.Background(), message)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
@@ -116,7 +117,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 			// THEN publish a message
 			testMessage := []byte("consume test message")
-			err = client.Push(testMessage)
+			err = client.Push(context.Background(), testMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Receive the message
@@ -139,7 +140,7 @@ var _ = Describe("MQ Client E2E", func() {
 			// THEN publish multiple messages
 			messages := []string{"first", "second", "third"}
 			for _, msg := range messages {
-				err := client.Push([]byte(msg))
+				err := client.Push(context.Background(), []byte(msg))
 				Expect(err).NotTo(HaveOccurred())
 			}
 
@@ -174,7 +175,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 			// THEN publish a message
 			testMessage := []byte("ack test message")
-			err = client.Push(testMessage)
+			err = client.Push(context.Background(), testMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Receive and acknowledge
@@ -204,7 +205,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 			// Publish a message
 			testMessage := []byte(`{"sensor":"temp001","value":23.5}`)
-			err = client.Push(testMessage)
+			err = client.Push(context.Background(), testMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Consume and verify
@@ -225,10 +226,10 @@ var _ = Describe("MQ Client E2E", func() {
 			time.Sleep(500 * time.Millisecond)
 
 			// Publish multiple messages
-			err = client.Push([]byte("message 1"))
+			err = client.Push(context.Background(), []byte("message 1"))
 			Expect(err).NotTo(HaveOccurred())
 
-			err = client.Push([]byte("message 2"))
+			err = client.Push(context.Background(), []byte("message 2"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Should receive both messages and acknowledge each one
@@ -266,7 +267,7 @@ var _ = Describe("MQ Client E2E", func() {
 				go func(_ int) {
 					defer GinkgoRecover()
 					message := []byte("concurrent message")
-					err := client.UnsafePush(message)
+					err := client.UnsafePush(context.Background(), message)
 					Expect(err).NotTo(HaveOccurred())
 					done <- true
 				}(i)
@@ -290,7 +291,7 @@ var _ = Describe("MQ Client E2E", func() {
 			go func() {
 				defer GinkgoRecover()
 				for i := 0; i < messageCount; i++ {
-					_ = client.UnsafePush([]byte("high throughput message"))
+					_ = client.UnsafePush(context.Background(), []byte("high throughput message"))
 				}
 				done <- true
 			}()
@@ -310,7 +311,7 @@ var _ = Describe("MQ Client E2E", func() {
 			// Don't wait for connection
 
 			// Operations should fail gracefully
-			err := client.UnsafePush([]byte("test"))
+			err := client.UnsafePush(context.Background(), []byte("test"))
 			Expect(err).To(HaveOccurred())
 		})
 
@@ -319,7 +320,7 @@ var _ = Describe("MQ Client E2E", func() {
 			time.Sleep(2 * time.Second)
 
 			// Publish should work
-			err := client.Push([]byte("before disconnect"))
+			err := client.Push(context.Background(), []byte("before disconnect"))
 			Expect(err).NotTo(HaveOccurred())
 
 			// Note: Simulating actual connection drop is complex
@@ -378,7 +379,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 			// THEN publish
 			originalMessage := []byte("exact content preservation test 🎉")
-			err = client.Push(originalMessage)
+			err = client.Push(context.Background(), originalMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Receive and verify
@@ -400,7 +401,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 			// THEN publish binary data
 			binaryData := []byte{0x00, 0x01, 0x02, 0xFF, 0xFE, 0xFD}
-			err = client.Push(binaryData)
+			err = client.Push(context.Background(), binaryData)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Receive and verify
@@ -422,7 +423,7 @@ var _ = Describe("MQ Client E2E", func() {
 
 			// THEN publish empty message
 			emptyMessage := []byte{}
-			err = client.Push(emptyMessage)
+			err = client.Push(context.Background(), emptyMessage)
 			Expect(err).NotTo(HaveOccurred())
 
 			// Receive and verify

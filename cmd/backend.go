@@ -29,7 +29,7 @@ func init() {
 	backendCmd.Flags().String("db-host", "localhost", "PostgreSQL host")
 	backendCmd.Flags().Int("db-port", 5432, "PostgreSQL port")
 	backendCmd.Flags().String("db-user", "postgres", "PostgreSQL user")
-	backendCmd.Flags().String("db-password", "", "PostgreSQL password")
+	backendCmd.Flags().String("db-password", "postgres", "PostgreSQL password")
 	backendCmd.Flags().String("db-name", "iot", "PostgreSQL database name")
 	backendCmd.Flags().String("db-sslmode", "disable", "PostgreSQL SSL mode")
 	backendCmd.Flags().String("rabbitmq-url", "amqp://localhost:5672", "RabbitMQ URL")

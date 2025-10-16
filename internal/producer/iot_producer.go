@@ -3,6 +3,7 @@ package producer
 
 import (
 	"context"
+	"log/slog"
 	"math/rand"
 	"time"
 
@@ -15,15 +16,15 @@ import (
 
 // Producer manages IoT devices and publishes sensor data to a message queue.
 type Producer struct {
-	MQClient       *mq.Client
-	DeviceMQClient *mq.Client
+	MQClient       mq.ClientInterface
+	DeviceMQClient mq.ClientInterface
 	IoTDevices     []*generator.IoTDevice
 }
 
 // NewProducer creates a new producer with a random number of IoT devices.
 // It publishes device creation messages for each device.
 // Note: Uses math/rand for device generation which is acceptable for simulation data.
-func NewProducer(mqClient *mq.Client, deviceMQClient *mq.Client) *Producer {
+func NewProducer(mqClient mq.ClientInterface, deviceMQClient mq.ClientInterface) *Producer {
 	deviceCount := rand.Intn(5) + 1 // #nosec G404 - weak random is acceptable for test data generation
 	iotDevices := make([]*generator.IoTDevice, 0, deviceCount)
 	for range deviceCount {
@@ -40,6 +41,7 @@ func NewProducer(mqClient *mq.Client, deviceMQClient *mq.Client) *Producer {
 	for _, device := range iotDevices {
 		if err := producer.publishDeviceCreation(device); err != nil {
 			// Log error but continue with other devices
+			slog.Error(err.Error())
 			continue
 		}
 	}
@@ -67,15 +69,17 @@ func (p *Producer) publishDeviceCreation(device *generator.IoTDevice) error {
 		return err
 	}
 
-	// Publish to device queue
-	return p.DeviceMQClient.Push(message)
+	// Publish to device queue with timeout
+	// Use very short timeout to avoid blocking during initialization in tests
+	// Background reconnection will handle subsequent operations once connection is established
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	return p.DeviceMQClient.Push(ctx, message)
 }
 
 // RandomDataPoint generates a random sensor reading and publishes it to the message queue.
 // Note: Uses math/rand for device selection which is acceptable for simulation data.
-// The context parameter is currently unused but maintained for interface consistency
-// and future compatibility when the MQ client is updated to support context-aware operations.
-func (p *Producer) RandomDataPoint(_ context.Context) error {
+func (p *Producer) RandomDataPoint(ctx context.Context) error {
 	// Select a random device
 	deviceID := p.IoTDevices[rand.Intn(len(p.IoTDevices))].DeviceID // #nosec G404 - weak random is acceptable for simulation
 
@@ -90,7 +94,5 @@ func (p *Producer) RandomDataPoint(_ context.Context) error {
 	}
 
 	// Publish to message queue
-	// TODO: Pass context to Push when MQ client supports context-aware operations
-	//nolint:contextcheck // MQ client Push method doesn't accept context parameter yet
-	return p.MQClient.Push(message)
+	return p.MQClient.Push(ctx, message)
 }

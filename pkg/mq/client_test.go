@@ -1,6 +1,7 @@
 package mq_test
 
 import (
+	"context"
 	"log/slog"
 	"os"
 	"time"
@@ -43,15 +44,54 @@ var _ = Describe("MQ Client", func() {
 
 	Describe("Push", func() {
 		Context("when not connected", func() {
-			It("should return error for Push", func() {
+			It("should retry with backoff and timeout", func() {
 				client := mq.New("test-queue", "amqp://invalid:5672", logger)
 
 				// Give client time to attempt connection and fail
 				time.Sleep(100 * time.Millisecond)
 
-				err := client.Push([]byte("test message"))
+				// Use a context with timeout to prevent infinite retries
+				ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+				defer cancel()
+
+				start := time.Now()
+				err := client.Push(ctx, []byte("test message"))
+				elapsed := time.Since(start)
+
+				// Should eventually timeout due to context
 				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("not connected"))
+				Expect(err.Error()).To(SatisfyAny(
+					ContainSubstring("context deadline exceeded"),
+					ContainSubstring("context canceled"),
+				))
+				// Should have waited for backoff retries
+				Expect(elapsed).To(BeNumerically(">=", 100*time.Millisecond))
+
+				_ = client.Close()
+			})
+
+			It("should return error after max retry attempts", func() {
+				client := mq.New("test-queue", "amqp://invalid:5672", logger)
+
+				// Give client time to attempt connection and fail
+				time.Sleep(100 * time.Millisecond)
+
+				// Use a long timeout that won't interfere with max retry logic
+				ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+				defer cancel()
+
+				start := time.Now()
+				err := client.Push(ctx, []byte("test message"))
+				elapsed := time.Since(start)
+
+				// Should return max retries exceeded error
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(ContainSubstring("maximum retry attempts exceeded"))
+
+				// Should have waited for multiple backoff attempts
+				// 5 retries with backoff: 100ms + 200ms + 400ms + 800ms + 1600ms = 3100ms minimum
+				Expect(elapsed).To(BeNumerically(">=", 3*time.Second))
+				Expect(elapsed).To(BeNumerically("<", 10*time.Second))
 
 				_ = client.Close()
 			})
@@ -62,7 +102,7 @@ var _ = Describe("MQ Client", func() {
 				// Give client time to attempt connection and fail
 				time.Sleep(100 * time.Millisecond)
 
-				err := client.UnsafePush([]byte("test message"))
+				err := client.UnsafePush(context.Background(), []byte("test message"))
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("not connected"))
 
@@ -129,8 +169,11 @@ var _ = Describe("MQ Client", func() {
 			// Wait for connection failure
 			time.Sleep(100 * time.Millisecond)
 
-			// Test that errors are returned
-			err := client.Push([]byte("test"))
+			// Test that errors are returned (use timeout context)
+			ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+			defer cancel()
+
+			err := client.Push(ctx, []byte("test"))
 			Expect(err).NotTo(BeNil())
 		})
 	})
@@ -147,7 +190,7 @@ var _ = Describe("MQ Client", func() {
 			done := make(chan bool, 3)
 			for i := 0; i < 3; i++ {
 				go func() {
-					_ = client.UnsafePush([]byte("test"))
+					_ = client.UnsafePush(context.Background(), []byte("test"))
 					done <- true
 				}()
 			}
@@ -229,7 +272,7 @@ var _ = Describe("MQ Client", func() {
 				Expect(client).NotTo(BeNil())
 
 				// Operations should fail gracefully
-				err := client.UnsafePush([]byte("test"))
+				err := client.UnsafePush(context.Background(), []byte("test"))
 				Expect(err).To(HaveOccurred())
 
 				_ = client.Close()
