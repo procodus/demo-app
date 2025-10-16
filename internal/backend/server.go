@@ -6,14 +6,17 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"google.golang.org/grpc"
 	"gorm.io/gorm"
 
 	"procodus.dev/demo-app/pkg/iot"
+	"procodus.dev/demo-app/pkg/metrics"
 )
 
 // Server represents the backend server that manages database, message queue, and gRPC.
@@ -47,6 +50,11 @@ type ServerConfig struct {
 
 	// Database port
 	DBPort int
+
+	// Metrics configuration (optional)
+	Metrics     *metrics.BackendMetrics
+	MQMetrics   *metrics.MQMetrics
+	MetricsPort int // HTTP port for Prometheus metrics endpoint (optional, 0 = disabled)
 }
 
 // NewServer creates a new Server instance.
@@ -134,6 +142,8 @@ func (s *Server) Run(ctx context.Context) error {
 		DB:          s.db,
 		RabbitMQURL: s.config.RabbitMQURL,
 		QueueName:   s.config.QueueName,
+		Metrics:     s.config.Metrics,
+		MQMetrics:   s.config.MQMetrics,
 	}
 
 	consumer, err := NewConsumer(consumerCfg)
@@ -153,6 +163,8 @@ func (s *Server) Run(ctx context.Context) error {
 		DB:          s.db,
 		RabbitMQURL: s.config.RabbitMQURL,
 		QueueName:   s.config.DeviceQueueName,
+		Metrics:     s.config.Metrics,
+		MQMetrics:   s.config.MQMetrics,
 	}
 
 	deviceConsumer, err := NewDeviceConsumer(deviceConsumerCfg)
@@ -167,7 +179,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 
 	// Initialize gRPC service
-	iotService, err := NewIoTService(s.logger, s.db)
+	iotService, err := NewIoTService(s.logger, s.db, s.config.Metrics)
 	if err != nil {
 		return fmt.Errorf("failed to initialize gRPC service: %w", err)
 	}
@@ -194,9 +206,31 @@ func (s *Server) Run(ctx context.Context) error {
 		close(grpcErr)
 	}()
 
+	// Start metrics HTTP server if configured
+	var metricsServer *http.Server
+	if s.config.MetricsPort > 0 && s.config.Metrics != nil {
+		metricsAddr := fmt.Sprintf(":%d", s.config.MetricsPort)
+		s.logger.Info("starting metrics HTTP server", "address", metricsAddr)
+
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", metrics.Handler())
+
+		metricsServer = &http.Server{
+			Addr:              metricsAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+
+		go func() {
+			if err := metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				s.logger.Error("metrics server error", "error", err)
+			}
+		}()
+	}
+
 	s.logger.Info("backend server started successfully")
 
-	// Wait for shutdown signal or gRPC error
+	// Wait for shutdown signal or server errors
 	select {
 	case sig := <-sigChan:
 		s.logger.Info("received shutdown signal", "signal", sig.String())
@@ -211,7 +245,15 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	// Shutdown
+	// Shutdown servers
+	if metricsServer != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+			s.logger.Error("failed to shutdown metrics server", "error", err)
+		}
+	}
+
 	return s.Shutdown()
 }
 

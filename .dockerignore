@@ -1,0 +1,66 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# Documentation
+*.md
+docs/
+CLAUDE.md
+CLI_USAGE.md
+LINTING_EXCLUSIONS.md
+coverage_summary.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test and coverage files
+*_test.go
+testdata/
+test/
+coverage.out
+coverage.html
+report.json
+
+# Build artifacts
+bin/
+dist/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Deployment and infrastructure
+deployments/k8s/
+deployments/helm/
+hacks/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Vendor (if using)
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.crt
+
+# Logs
+*.log

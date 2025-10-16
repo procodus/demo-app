@@ -1,0 +1,27 @@
+{{- if .Values.backend.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "demo-app.fullname" . }}-backend
+  labels:
+    {{- include "demo-app.backend.labels" . | nindent 4 }}
+  {{- with .Values.backend.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.backend.service.type }}
+  ports:
+  - port: {{ .Values.backend.service.grpcPort }}
+    targetPort: grpc
+    protocol: TCP
+    name: grpc
+  {{- if .Values.metrics.enabled }}
+  - port: {{ .Values.backend.service.metricsPort }}
+    targetPort: {{ .Values.backend.metrics.portName }}
+    protocol: TCP
+    name: {{ .Values.backend.metrics.portName }}
+  {{- end }}
+  selector:
+    {{- include "demo-app.backend.selectorLabels" . | nindent 4 }}
+{{- end }}

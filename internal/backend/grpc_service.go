@@ -6,22 +6,25 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"gorm.io/gorm"
 
 	"procodus.dev/demo-app/pkg/iot"
+	"procodus.dev/demo-app/pkg/metrics"
 )
 
 // IoTServiceImpl implements the gRPC IoTService interface.
 type IoTServiceImpl struct {
 	iot.UnimplementedIoTServiceServer
-	logger *slog.Logger
-	db     *gorm.DB
+	logger  *slog.Logger
+	db      *gorm.DB
+	metrics *metrics.BackendMetrics // Optional metrics
 }
 
 // NewIoTService creates a new IoTServiceImpl instance.
-func NewIoTService(logger *slog.Logger, db *gorm.DB) (*IoTServiceImpl, error) {
+func NewIoTService(logger *slog.Logger, db *gorm.DB, m *metrics.BackendMetrics) (*IoTServiceImpl, error) {
 	if logger == nil {
 		return nil, errors.New("logger cannot be nil")
 	}
@@ -31,18 +34,38 @@ func NewIoTService(logger *slog.Logger, db *gorm.DB) (*IoTServiceImpl, error) {
 	}
 
 	return &IoTServiceImpl{
-		logger: logger,
-		db:     db,
+		logger:  logger,
+		db:      db,
+		metrics: m,
 	}, nil
 }
 
 // GetAllDevice returns all IoT devices from the database.
 func (s *IoTServiceImpl) GetAllDevice(ctx context.Context, _ *iot.GetAllDevicesRequest) (*iot.GetAllDevicesResponse, error) {
+	// Track in-flight requests
+	if s.metrics != nil {
+		s.metrics.GRPCRequestsInFlight.WithLabelValues("GetAllDevice").Inc()
+		defer s.metrics.GRPCRequestsInFlight.WithLabelValues("GetAllDevice").Dec()
+	}
+
+	// Track duration
+	var timer *prometheus.Timer
+	if s.metrics != nil {
+		timer = prometheus.NewTimer(s.metrics.GRPCRequestDuration.WithLabelValues("GetAllDevice"))
+		defer timer.ObserveDuration()
+	}
+
 	s.logger.Info("GetAllDevice called")
 
 	var devices []IoTDevice
 	if err := s.db.WithContext(ctx).Find(&devices).Error; err != nil {
 		s.logger.Error("failed to fetch devices", "error", err)
+
+		// Track error
+		if s.metrics != nil {
+			s.metrics.GRPCRequestsTotal.WithLabelValues("GetAllDevice", "error").Inc()
+		}
+
 		return nil, status.Errorf(codes.Internal, "failed to fetch devices: %v", err)
 	}
 
@@ -63,6 +86,11 @@ func (s *IoTServiceImpl) GetAllDevice(ctx context.Context, _ *iot.GetAllDevicesR
 
 	s.logger.Info("fetched devices", "count", len(devices))
 
+	// Track success
+	if s.metrics != nil {
+		s.metrics.GRPCRequestsTotal.WithLabelValues("GetAllDevice", "success").Inc()
+	}
+
 	return &iot.GetAllDevicesResponse{
 		Devices: protoDevices,
 	}, nil
@@ -70,7 +98,24 @@ func (s *IoTServiceImpl) GetAllDevice(ctx context.Context, _ *iot.GetAllDevicesR
 
 // GetDevice returns a specific IoT device by device ID.
 func (s *IoTServiceImpl) GetDevice(ctx context.Context, req *iot.GetDeviceByIDRequest) (*iot.GetDeviceByIDResponse, error) {
+	// Track in-flight requests
+	if s.metrics != nil {
+		s.metrics.GRPCRequestsInFlight.WithLabelValues("GetDevice").Inc()
+		defer s.metrics.GRPCRequestsInFlight.WithLabelValues("GetDevice").Dec()
+	}
+
+	// Track duration
+	var timer *prometheus.Timer
+	if s.metrics != nil {
+		timer = prometheus.NewTimer(s.metrics.GRPCRequestDuration.WithLabelValues("GetDevice"))
+		defer timer.ObserveDuration()
+	}
+
 	if req.GetDeviceId() == "" {
+		// Track error
+		if s.metrics != nil {
+			s.metrics.GRPCRequestsTotal.WithLabelValues("GetDevice", "error").Inc()
+		}
 		return nil, status.Error(codes.InvalidArgument, "device_id cannot be empty")
 	}
 
@@ -78,6 +123,11 @@ func (s *IoTServiceImpl) GetDevice(ctx context.Context, req *iot.GetDeviceByIDRe
 
 	var device IoTDevice
 	if err := s.db.WithContext(ctx).Where("device_id = ?", req.GetDeviceId()).First(&device).Error; err != nil {
+		// Track error
+		if s.metrics != nil {
+			s.metrics.GRPCRequestsTotal.WithLabelValues("GetDevice", "error").Inc()
+		}
+
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			s.logger.Warn("device not found", "device_id", req.GetDeviceId())
 			return nil, status.Errorf(codes.NotFound, "device not found: %s", req.GetDeviceId())
@@ -99,6 +149,11 @@ func (s *IoTServiceImpl) GetDevice(ctx context.Context, req *iot.GetDeviceByIDRe
 
 	s.logger.Info("fetched device", "device_id", req.GetDeviceId())
 
+	// Track success
+	if s.metrics != nil {
+		s.metrics.GRPCRequestsTotal.WithLabelValues("GetDevice", "success").Inc()
+	}
+
 	return &iot.GetDeviceByIDResponse{
 		Device: protoDevice,
 	}, nil
@@ -106,7 +161,24 @@ func (s *IoTServiceImpl) GetDevice(ctx context.Context, req *iot.GetDeviceByIDRe
 
 // GetSensorReadingByDeviceID returns sensor readings for a specific device with pagination.
 func (s *IoTServiceImpl) GetSensorReadingByDeviceID(ctx context.Context, req *iot.GetSensorReadingByDeviceIDRequest) (*iot.GetSensorReadingByDeviceIDResponse, error) {
+	// Track in-flight requests
+	if s.metrics != nil {
+		s.metrics.GRPCRequestsInFlight.WithLabelValues("GetSensorReadingByDeviceID").Inc()
+		defer s.metrics.GRPCRequestsInFlight.WithLabelValues("GetSensorReadingByDeviceID").Dec()
+	}
+
+	// Track duration
+	var timer *prometheus.Timer
+	if s.metrics != nil {
+		timer = prometheus.NewTimer(s.metrics.GRPCRequestDuration.WithLabelValues("GetSensorReadingByDeviceID"))
+		defer timer.ObserveDuration()
+	}
+
 	if req.GetDeviceId() == "" {
+		// Track error
+		if s.metrics != nil {
+			s.metrics.GRPCRequestsTotal.WithLabelValues("GetSensorReadingByDeviceID", "error").Inc()
+		}
 		return nil, status.Error(codes.InvalidArgument, "device_id cannot be empty")
 	}
 
@@ -120,6 +192,10 @@ func (s *IoTServiceImpl) GetSensorReadingByDeviceID(ctx context.Context, req *io
 		var err error
 		offset, err = strconv.Atoi(req.GetPageToken())
 		if err != nil {
+			// Track error
+			if s.metrics != nil {
+				s.metrics.GRPCRequestsTotal.WithLabelValues("GetSensorReadingByDeviceID", "error").Inc()
+			}
 			return nil, status.Error(codes.InvalidArgument, "invalid page_token")
 		}
 	}
@@ -134,6 +210,12 @@ func (s *IoTServiceImpl) GetSensorReadingByDeviceID(ctx context.Context, req *io
 
 	if err := query.Find(&readings).Error; err != nil {
 		s.logger.Error("failed to fetch sensor readings", "device_id", req.GetDeviceId(), "error", err)
+
+		// Track error
+		if s.metrics != nil {
+			s.metrics.GRPCRequestsTotal.WithLabelValues("GetSensorReadingByDeviceID", "error").Inc()
+		}
+
 		return nil, status.Errorf(codes.Internal, "failed to fetch sensor readings: %v", err)
 	}
 
@@ -167,6 +249,11 @@ func (s *IoTServiceImpl) GetSensorReadingByDeviceID(ctx context.Context, req *io
 		"count", len(protoReadings),
 		"has_next_page", hasNextPage,
 	)
+
+	// Track success
+	if s.metrics != nil {
+		s.metrics.GRPCRequestsTotal.WithLabelValues("GetSensorReadingByDeviceID", "success").Inc()
+	}
 
 	return &iot.GetSensorReadingByDeviceIDResponse{
 		Reading:       protoReadings,

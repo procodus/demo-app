@@ -8,13 +8,17 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 
 	"procodus.dev/demo-app/pkg/iot"
+	"procodus.dev/demo-app/pkg/metrics"
 )
 
 // Server represents the frontend HTTP server.
@@ -24,6 +28,7 @@ type Server struct {
 	grpcClient iot.IoTServiceClient
 	grpcConn   *grpc.ClientConn
 	config     *ServerConfig
+	metrics    *metrics.FrontendMetrics // Optional metrics
 }
 
 // ServerConfig holds the configuration for the Server.
@@ -35,6 +40,9 @@ type ServerConfig struct {
 
 	// HTTP server configuration
 	HTTPPort int
+
+	// Metrics configuration (optional)
+	Metrics *metrics.FrontendMetrics
 }
 
 // NewServer creates a new frontend Server instance.
@@ -56,8 +64,9 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 	}
 
 	return &Server{
-		logger: cfg.Logger,
-		config: cfg,
+		logger:  cfg.Logger,
+		config:  cfg,
+		metrics: cfg.Metrics,
 	}, nil
 }
 
@@ -174,11 +183,16 @@ func (s *Server) Shutdown(ctx context.Context) error {
 }
 
 // setupRoutes configures the HTTP routes.
-func (s *Server) setupRoutes() *http.ServeMux {
+func (s *Server) setupRoutes() http.Handler {
 	mux := http.NewServeMux()
 
 	// Health check
 	mux.HandleFunc("GET /health", s.handleHealth)
+
+	// Prometheus metrics endpoint (if metrics enabled)
+	if s.metrics != nil {
+		mux.Handle("GET /metrics", metrics.Handler())
+	}
 
 	// API endpoints for htmx
 	mux.HandleFunc("GET /api/devices", s.handleAPIDevices)
@@ -194,5 +208,140 @@ func (s *Server) setupRoutes() *http.ServeMux {
 	// Index page (catch-all, must be last)
 	mux.HandleFunc("GET /{$}", s.handleIndex)
 
+	// Wrap with metrics middleware if metrics are enabled
+	if s.metrics != nil {
+		return s.metricsMiddleware(mux)
+	}
+
 	return mux
+}
+
+// metricsMiddleware wraps HTTP handlers with Prometheus metrics tracking.
+func (s *Server) metricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Track in-flight requests
+		s.metrics.HTTPRequestsInFlight.WithLabelValues(r.Method, r.URL.Path).Inc()
+		defer s.metrics.HTTPRequestsInFlight.WithLabelValues(r.Method, r.URL.Path).Dec()
+
+		// Track duration
+		timer := prometheus.NewTimer(s.metrics.HTTPRequestDuration.WithLabelValues(r.Method, r.URL.Path))
+		defer timer.ObserveDuration()
+
+		// Create response writer wrapper to capture status code and size
+		rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+
+		// Call next handler
+		next.ServeHTTP(rw, r)
+
+		// Track request completion
+		s.metrics.HTTPRequestsTotal.WithLabelValues(r.Method, r.URL.Path, strconv.Itoa(rw.statusCode)).Inc()
+		s.metrics.HTTPResponseSize.WithLabelValues(r.URL.Path).Observe(float64(rw.bytesWritten))
+	})
+}
+
+// responseWriter wraps http.ResponseWriter to capture status code and bytes written.
+type responseWriter struct {
+	http.ResponseWriter
+	statusCode   int
+	bytesWritten int
+}
+
+// WriteHeader captures the status code.
+func (rw *responseWriter) WriteHeader(statusCode int) {
+	rw.statusCode = statusCode
+	rw.ResponseWriter.WriteHeader(statusCode)
+}
+
+// Write captures bytes written.
+func (rw *responseWriter) Write(b []byte) (int, error) {
+	n, err := rw.ResponseWriter.Write(b)
+	rw.bytesWritten += n
+	return n, err
+}
+
+// callGetAllDevice wraps gRPC GetAllDevice call with metrics.
+func (s *Server) callGetAllDevice(ctx context.Context, req *iot.GetAllDevicesRequest) (*iot.GetAllDevicesResponse, error) {
+	if s.metrics == nil {
+		return s.grpcClient.GetAllDevice(ctx, req)
+	}
+
+	// Track duration
+	timer := prometheus.NewTimer(s.metrics.GRPCClientDuration.WithLabelValues("GetAllDevice"))
+	defer timer.ObserveDuration()
+
+	// Make the call
+	resp, err := s.grpcClient.GetAllDevice(ctx, req)
+
+	// Track result
+	if err != nil {
+		s.metrics.GRPCClientCalls.WithLabelValues("GetAllDevice", "error").Inc()
+		// Categorize error type
+		if st, ok := status.FromError(err); ok {
+			s.metrics.GRPCClientErrors.WithLabelValues("GetAllDevice", st.Code().String()).Inc()
+		} else {
+			s.metrics.GRPCClientErrors.WithLabelValues("GetAllDevice", "unknown").Inc()
+		}
+		return nil, err
+	}
+
+	s.metrics.GRPCClientCalls.WithLabelValues("GetAllDevice", "success").Inc()
+	return resp, nil
+}
+
+// callGetDevice wraps gRPC GetDevice call with metrics.
+func (s *Server) callGetDevice(ctx context.Context, req *iot.GetDeviceByIDRequest) (*iot.GetDeviceByIDResponse, error) {
+	if s.metrics == nil {
+		return s.grpcClient.GetDevice(ctx, req)
+	}
+
+	// Track duration
+	timer := prometheus.NewTimer(s.metrics.GRPCClientDuration.WithLabelValues("GetDevice"))
+	defer timer.ObserveDuration()
+
+	// Make the call
+	resp, err := s.grpcClient.GetDevice(ctx, req)
+
+	// Track result
+	if err != nil {
+		s.metrics.GRPCClientCalls.WithLabelValues("GetDevice", "error").Inc()
+		// Categorize error type
+		if st, ok := status.FromError(err); ok {
+			s.metrics.GRPCClientErrors.WithLabelValues("GetDevice", st.Code().String()).Inc()
+		} else {
+			s.metrics.GRPCClientErrors.WithLabelValues("GetDevice", "unknown").Inc()
+		}
+		return nil, err
+	}
+
+	s.metrics.GRPCClientCalls.WithLabelValues("GetDevice", "success").Inc()
+	return resp, nil
+}
+
+// callGetSensorReadingByDeviceID wraps gRPC GetSensorReadingByDeviceID call with metrics.
+func (s *Server) callGetSensorReadingByDeviceID(ctx context.Context, req *iot.GetSensorReadingByDeviceIDRequest) (*iot.GetSensorReadingByDeviceIDResponse, error) {
+	if s.metrics == nil {
+		return s.grpcClient.GetSensorReadingByDeviceID(ctx, req)
+	}
+
+	// Track duration
+	timer := prometheus.NewTimer(s.metrics.GRPCClientDuration.WithLabelValues("GetSensorReadingByDeviceID"))
+	defer timer.ObserveDuration()
+
+	// Make the call
+	resp, err := s.grpcClient.GetSensorReadingByDeviceID(ctx, req)
+
+	// Track result
+	if err != nil {
+		s.metrics.GRPCClientCalls.WithLabelValues("GetSensorReadingByDeviceID", "error").Inc()
+		// Categorize error type
+		if st, ok := status.FromError(err); ok {
+			s.metrics.GRPCClientErrors.WithLabelValues("GetSensorReadingByDeviceID", st.Code().String()).Inc()
+		} else {
+			s.metrics.GRPCClientErrors.WithLabelValues("GetSensorReadingByDeviceID", "unknown").Inc()
+		}
+		return nil, err
+	}
+
+	s.metrics.GRPCClientCalls.WithLabelValues("GetSensorReadingByDeviceID", "success").Inc()
+	return resp, nil
 }

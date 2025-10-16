@@ -1,0 +1,21 @@
+{{- if and .Values.generator.enabled .Values.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "demo-app.fullname" . }}-generator
+  labels:
+    {{- include "demo-app.generator.labels" . | nindent 4 }}
+  {{- with .Values.generator.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.generator.service.type }}
+  ports:
+  - port: {{ .Values.generator.metrics.port }}
+    targetPort: {{ .Values.generator.metrics.portName }}
+    protocol: TCP
+    name: {{ .Values.generator.metrics.portName }}
+  selector:
+    {{- include "demo-app.generator.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -1,0 +1,86 @@
+{{- if .Values.generator.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "demo-app.fullname" . }}-generator
+  labels:
+    {{- include "demo-app.generator.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.generator.enabled }}
+  replicas: {{ .Values.generator.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "demo-app.generator.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ toJson .Values.generator.config | sha256sum }}
+        {{- with .Values.generator.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "demo-app.generator.selectorLabels" . | nindent 8 }}
+        {{- with .Values.generator.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.generator.podSecurityContext | nindent 8 }}
+      containers:
+      - name: generator
+        image: {{ include "demo-app.generator.image" . }}
+        imagePullPolicy: {{ .Values.generator.image.pullPolicy | default .Values.global.imagePullPolicy }}
+        command:
+          - /app/demo-app
+          - generator
+        env:
+        - name: RABBITMQ_URL
+          value: {{ include "demo-app.rabbitmq.url" . | quote }}
+        - name: SENSOR_QUEUE
+          value: {{ .Values.rabbitmq.sensorQueue | quote }}
+        - name: DEVICE_QUEUE
+          value: {{ .Values.rabbitmq.deviceQueue | quote }}
+        - name: PRODUCER_COUNT
+          value: {{ .Values.generator.config.producerCount | quote }}
+        - name: INTERVAL
+          value: {{ .Values.generator.config.interval | quote }}
+        - name: LOG_LEVEL
+          value: {{ .Values.generator.config.logLevel | quote }}
+        {{- if .Values.metrics.enabled }}
+        - name: METRICS_PORT
+          value: {{ .Values.generator.metrics.port | quote }}
+        {{- end }}
+        ports:
+        {{- if .Values.metrics.enabled }}
+        - name: {{ .Values.generator.metrics.portName }}
+          containerPort: {{ .Values.generator.metrics.port }}
+          protocol: TCP
+        {{- end }}
+        resources:
+          {{- toYaml .Values.generator.resources | nindent 10 }}
+        securityContext:
+          {{- toYaml .Values.generator.securityContext | nindent 10 }}
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: tmp
+        emptyDir: {}
+      {{- with .Values.generator.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.generator.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.generator.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

@@ -7,11 +7,13 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"google.golang.org/protobuf/proto"
 	"gorm.io/gorm"
 
 	"procodus.dev/demo-app/pkg/iot"
+	"procodus.dev/demo-app/pkg/metrics"
 	"procodus.dev/demo-app/pkg/mq"
 )
 
@@ -21,6 +23,7 @@ type DeviceConsumer struct {
 	db       *gorm.DB
 	mqClient mq.ClientInterface
 	done     chan struct{}
+	metrics  *metrics.BackendMetrics // Optional metrics
 }
 
 // DeviceConsumerConfig holds the configuration for the DeviceConsumer.
@@ -29,6 +32,8 @@ type DeviceConsumerConfig struct {
 	DB          *gorm.DB
 	RabbitMQURL string
 	QueueName   string
+	Metrics     *metrics.BackendMetrics // Optional metrics
+	MQMetrics   *metrics.MQMetrics      // Optional MQ metrics
 }
 
 // NewDeviceConsumer creates a new DeviceConsumer instance.
@@ -56,11 +61,17 @@ func NewDeviceConsumer(cfg *DeviceConsumerConfig) (*DeviceConsumer, error) {
 	// Create MQ client
 	mqClient := mq.New(cfg.QueueName, cfg.RabbitMQURL, cfg.Logger)
 
+	// Enable MQ metrics if configured
+	if cfg.MQMetrics != nil {
+		mqClient.SetMetrics(cfg.MQMetrics)
+	}
+
 	return &DeviceConsumer{
 		logger:   cfg.Logger,
 		db:       cfg.DB,
 		mqClient: mqClient,
 		done:     make(chan struct{}),
+		metrics:  cfg.Metrics,
 	}, nil
 }
 
@@ -68,12 +79,21 @@ func NewDeviceConsumer(cfg *DeviceConsumerConfig) (*DeviceConsumer, error) {
 func (c *DeviceConsumer) Start(ctx context.Context) error {
 	c.logger.Info("starting device consumer")
 
+	// Track active consumer
+	if c.metrics != nil {
+		c.metrics.ActiveConsumers.Inc()
+	}
+
 	// Wait for MQ client to be ready
 	time.Sleep(2 * time.Second)
 
 	// Start consuming messages
 	deliveries, err := c.mqClient.Consume()
 	if err != nil {
+		// Decrement on error
+		if c.metrics != nil {
+			c.metrics.ActiveConsumers.Dec()
+		}
 		return fmt.Errorf("failed to start consuming: %w", err)
 	}
 
@@ -108,12 +128,26 @@ func (c *DeviceConsumer) processMessages(ctx context.Context, deliveries <-chan 
 
 // handleDelivery processes a single device message delivery.
 func (c *DeviceConsumer) handleDelivery(ctx context.Context, delivery amqp.Delivery) {
+	// Track processing duration
+	var timer *prometheus.Timer
+	if c.metrics != nil {
+		timer = prometheus.NewTimer(c.metrics.ProcessingDuration.WithLabelValues("device-data"))
+		defer timer.ObserveDuration()
+	}
+
 	// Parse the protobuf message
 	device := &iot.IoTDevice{}
 	if err := proto.Unmarshal(delivery.Body, device); err != nil {
 		c.logger.Error("failed to unmarshal device message",
 			"error", err,
 		)
+
+		// Track failure
+		if c.metrics != nil {
+			c.metrics.ConsumerMessagesTotal.WithLabelValues("device-data", "error").Inc()
+			c.metrics.ConsumerErrors.WithLabelValues("device-data", "unmarshal_error").Inc()
+		}
+
 		// Acknowledge message even on parse error to avoid reprocessing
 		if ackErr := delivery.Ack(false); ackErr != nil {
 			c.logger.Error("failed to ack message", "error", ackErr)
@@ -133,6 +167,13 @@ func (c *DeviceConsumer) handleDelivery(ctx context.Context, delivery amqp.Deliv
 			"device_id", device.GetDeviceId(),
 			"error", err,
 		)
+
+		// Track failure
+		if c.metrics != nil {
+			c.metrics.ConsumerMessagesTotal.WithLabelValues("device-data", "error").Inc()
+			c.metrics.ConsumerErrors.WithLabelValues("device-data", "database_error").Inc()
+		}
+
 		// Nack the message so it can be reprocessed
 		if nackErr := delivery.Nack(false, true); nackErr != nil {
 			c.logger.Error("failed to nack message", "error", nackErr)
@@ -144,6 +185,11 @@ func (c *DeviceConsumer) handleDelivery(ctx context.Context, delivery amqp.Deliv
 	if err := delivery.Ack(false); err != nil {
 		c.logger.Error("failed to ack message", "error", err)
 		return
+	}
+
+	// Track success
+	if c.metrics != nil {
+		c.metrics.ConsumerMessagesTotal.WithLabelValues("device-data", "success").Inc()
 	}
 
 	c.logger.Debug("device saved successfully",
@@ -193,6 +239,11 @@ func (c *DeviceConsumer) saveIoTDevice(ctx context.Context, device *iot.IoTDevic
 // Stop stops the device consumer and closes the MQ client.
 func (c *DeviceConsumer) Stop() error {
 	c.logger.Info("stopping device consumer")
+
+	// Decrement active consumer count
+	if c.metrics != nil {
+		defer c.metrics.ActiveConsumers.Dec()
+	}
 
 	// Close MQ client
 	if err := c.mqClient.Close(); err != nil {

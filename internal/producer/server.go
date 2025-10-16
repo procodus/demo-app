@@ -3,7 +3,9 @@ package producer
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"sync"
@@ -32,6 +34,8 @@ type ServerConfig struct {
 	Metrics *metrics.ProducerMetrics
 	// MQMetrics is the optional Prometheus metrics collector for MQ operations
 	MQMetrics *metrics.MQMetrics
+	// MetricsPort is the HTTP port for Prometheus metrics endpoint (optional, 0 = disabled)
+	MetricsPort int
 }
 
 // Server manages multiple producer instances.
@@ -142,6 +146,28 @@ func (s *Server) Run(ctx context.Context) error {
 		"interval", s.config.Interval,
 	)
 
+	// Start metrics HTTP server if configured
+	var metricsServer *http.Server
+	if s.config.MetricsPort > 0 && s.config.Metrics != nil {
+		metricsAddr := fmt.Sprintf(":%d", s.config.MetricsPort)
+		s.logger.Info("starting metrics HTTP server", "address", metricsAddr)
+
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", metrics.Handler())
+
+		metricsServer = &http.Server{
+			Addr:              metricsAddr,
+			Handler:           mux,
+			ReadHeaderTimeout: 10 * time.Second,
+		}
+
+		go func() {
+			if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+				s.logger.Error("metrics server error", "error", err)
+			}
+		}()
+	}
+
 	// Wait for shutdown signal
 	select {
 	case sig := <-sigChan:
@@ -149,6 +175,15 @@ func (s *Server) Run(ctx context.Context) error {
 		cancel()
 	case <-ctx.Done():
 		s.logger.Info("context canceled, shutting down")
+	}
+
+	// Shutdown metrics server
+	if metricsServer != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
+			s.logger.Error("failed to shutdown metrics server", "error", err)
+		}
 	}
 
 	// Wait for all producers to finish

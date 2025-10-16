@@ -91,7 +91,7 @@ var _ = BeforeSuite(func() {
 
 	// Create gRPC service implementation
 	logger.Info("creating gRPC service")
-	iotService, err := backend.NewIoTService(logger, testDB)
+	iotService, err := backend.NewIoTService(logger, testDB, nil)
 	Expect(err).NotTo(HaveOccurred())
 
 	// Start gRPC server

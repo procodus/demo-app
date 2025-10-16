@@ -17,7 +17,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debug("handling index request")
 
 	// Render index template
-	if err := renderIndex(r.Context(), w); err != nil {
+	if err := renderIndex(r.Context(), w, s.metrics); err != nil {
 		s.logger.Error("failed to render index", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -32,7 +32,7 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	resp, err := s.grpcClient.GetAllDevice(ctx, &iot.GetAllDevicesRequest{})
+	resp, err := s.callGetAllDevice(ctx, &iot.GetAllDevicesRequest{})
 	if err != nil {
 		s.logger.Error("failed to fetch devices", "error", err)
 		http.Error(w, "Failed to fetch devices", http.StatusInternalServerError)
@@ -40,7 +40,7 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render devices page
-	if err := renderDevices(r.Context(), w, resp.GetDevices()); err != nil {
+	if err := renderDevices(r.Context(), w, resp.GetDevices(), s.metrics); err != nil {
 		s.logger.Error("failed to render devices", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -56,7 +56,7 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	deviceResp, err := s.grpcClient.GetDevice(ctx, &iot.GetDeviceByIDRequest{
+	deviceResp, err := s.callGetDevice(ctx, &iot.GetDeviceByIDRequest{
 		DeviceId: deviceID,
 	})
 	if err != nil {
@@ -71,7 +71,7 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Fetch sensor readings for the device
-	readingsResp, err := s.grpcClient.GetSensorReadingByDeviceID(ctx, &iot.GetSensorReadingByDeviceIDRequest{
+	readingsResp, err := s.callGetSensorReadingByDeviceID(ctx, &iot.GetSensorReadingByDeviceIDRequest{
 		DeviceId: deviceID,
 	})
 	if err != nil {
@@ -81,7 +81,7 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render device detail page
-	if err := renderDevice(r.Context(), w, deviceResp.GetDevice(), readingsResp.GetReading()); err != nil {
+	if err := renderDevice(r.Context(), w, deviceResp.GetDevice(), readingsResp.GetReading(), s.metrics); err != nil {
 		s.logger.Error("failed to render device", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -96,7 +96,7 @@ func (s *Server) handleAPIDevices(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	resp, err := s.grpcClient.GetAllDevice(ctx, &iot.GetAllDevicesRequest{})
+	resp, err := s.callGetAllDevice(ctx, &iot.GetAllDevicesRequest{})
 	if err != nil {
 		s.logger.Error("failed to fetch devices", "error", err)
 		http.Error(w, "Failed to fetch devices", http.StatusInternalServerError)
@@ -104,7 +104,7 @@ func (s *Server) handleAPIDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render devices list fragment
-	if err := renderDevicesList(r.Context(), w, resp.GetDevices()); err != nil {
+	if err := renderDevicesList(r.Context(), w, resp.GetDevices(), s.metrics); err != nil {
 		s.logger.Error("failed to render devices list", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -123,7 +123,7 @@ func (s *Server) handleAPIDeviceReadings(w http.ResponseWriter, r *http.Request)
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	resp, err := s.grpcClient.GetSensorReadingByDeviceID(ctx, &iot.GetSensorReadingByDeviceIDRequest{
+	resp, err := s.callGetSensorReadingByDeviceID(ctx, &iot.GetSensorReadingByDeviceIDRequest{
 		DeviceId:  deviceID,
 		PageToken: pageToken,
 	})
@@ -134,7 +134,7 @@ func (s *Server) handleAPIDeviceReadings(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Render readings list fragment
-	if err := renderReadingsList(r.Context(), w, resp.GetReading(), resp.GetNextPageToken()); err != nil {
+	if err := renderReadingsList(r.Context(), w, resp.GetReading(), resp.GetNextPageToken(), s.metrics); err != nil {
 		s.logger.Error("failed to render readings list", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return

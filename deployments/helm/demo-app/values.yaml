@@ -1,0 +1,360 @@
+# Default values for demo-app Helm chart
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  # Image registry for all services
+  imageRegistry: ghcr.io
+  # Image pull policy
+  imagePullPolicy: IfNotPresent
+  # Image pull secrets
+  imagePullSecrets: []
+  # Global labels to add to all resources
+  labels: {}
+  # Global annotations to add to all resources
+  annotations: {}
+
+# RabbitMQ connection settings (external or in-cluster)
+rabbitmq:
+  # RabbitMQ host
+  host: rabbitmq
+  # RabbitMQ port
+  port: 5672
+  # RabbitMQ user
+  user: guest
+  # RabbitMQ password (use secret in production)
+  password: guest
+  # Queue names
+  sensorQueue: sensor-data
+  deviceQueue: device-data
+  # Connection URL format: amqp://user:password@host:port
+  # If url is set, it overrides individual settings
+  url: ""
+
+# PostgreSQL connection settings (external or in-cluster)
+postgresql:
+  # PostgreSQL host
+  host: postgresql
+  # PostgreSQL port
+  port: 5432
+  # PostgreSQL database name
+  database: iot_db
+  # PostgreSQL user
+  user: postgres
+  # PostgreSQL password (use secret in production)
+  password: postgres
+  # SSL mode (disable, require, verify-ca, verify-full)
+  sslmode: disable
+
+# Prometheus metrics configuration
+metrics:
+  # Enable Prometheus metrics collection
+  enabled: true
+  # Enable ServiceMonitor resources (requires Prometheus Operator)
+  serviceMonitor:
+    enabled: true
+    # ServiceMonitor labels (for Prometheus selector)
+    labels:
+      prometheus: kube-prometheus
+    # Scrape interval
+    interval: 30s
+    # Scrape timeout
+    scrapeTimeout: 10s
+
+# Generator service configuration
+generator:
+  # Enable generator deployment
+  enabled: true
+
+  # Image configuration
+  image:
+    repository: procodus/demo-app
+    tag: "latest"
+    pullPolicy: ""  # If empty, uses global.imagePullPolicy
+
+  # Number of replicas
+  replicaCount: 1
+
+  # Application configuration
+  config:
+    # Number of concurrent producers
+    producerCount: 5
+    # Data generation interval
+    interval: "5s"
+    # Log level (debug, info, warn, error)
+    logLevel: info
+
+  # Metrics configuration
+  metrics:
+    # Metrics port
+    port: 9091
+    # Service port name
+    portName: metrics
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Pod labels
+  podLabels: {}
+
+  # Security context for pod
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Security context for container
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    annotations: {}
+
+# Backend service configuration
+backend:
+  # Enable backend deployment
+  enabled: true
+
+  # Image configuration
+  image:
+    repository: procodus/demo-app
+    tag: "latest"
+    pullPolicy: ""  # If empty, uses global.imagePullPolicy
+
+  # Number of replicas
+  replicaCount: 1
+
+  # Application configuration
+  config:
+    # gRPC port
+    grpcPort: 50051
+    # Log level (debug, info, warn, error)
+    logLevel: info
+
+  # Metrics configuration
+  metrics:
+    # Metrics port
+    port: 9090
+    # Service port name
+    portName: metrics
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 200m
+      memory: 256Mi
+
+  # Liveness probe
+  livenessProbe:
+    enabled: true
+    grpc:
+      port: 50051
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Readiness probe
+  readinessProbe:
+    enabled: true
+    grpc:
+      port: 50051
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Pod labels
+  podLabels: {}
+
+  # Security context for pod
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Security context for container
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    grpcPort: 50051
+    metricsPort: 9090
+    annotations: {}
+
+# Frontend service configuration
+frontend:
+  # Enable frontend deployment
+  enabled: true
+
+  # Image configuration
+  image:
+    repository: procodus/demo-app
+    tag: "latest"
+    pullPolicy: ""  # If empty, uses global.imagePullPolicy
+
+  # Number of replicas
+  replicaCount: 2
+
+  # Application configuration
+  config:
+    # HTTP port
+    httpPort: 8080
+    # Log level (debug, info, warn, error)
+    logLevel: info
+
+  # Resource limits and requests
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+  # Liveness probe
+  livenessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Readiness probe
+  readinessProbe:
+    enabled: true
+    httpGet:
+      path: /health
+      port: 8080
+    initialDelaySeconds: 10
+    periodSeconds: 5
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+
+  # Pod annotations
+  podAnnotations: {}
+
+  # Pod labels
+  podLabels: {}
+
+  # Security context for pod
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  # Security context for container
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # Node selector
+  nodeSelector: {}
+
+  # Tolerations
+  tolerations: []
+
+  # Affinity
+  affinity: {}
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+    annotations: {}
+
+  # Ingress configuration
+  ingress:
+    enabled: false
+    className: nginx
+    annotations: {}
+      # cert-manager.io/cluster-issuer: letsencrypt-prod
+      # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    hosts:
+      - host: demo-app.example.com
+        paths:
+          - path: /
+            pathType: Prefix
+    tls: []
+      # - secretName: demo-app-tls
+      #   hosts:
+      #     - demo-app.example.com
+
+# Autoscaling configuration (optional, requires metrics-server)
+autoscaling:
+  generator:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  backend:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80
+
+  frontend:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 80
+    targetMemoryUtilizationPercentage: 80

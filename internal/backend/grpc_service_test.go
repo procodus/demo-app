@@ -42,7 +42,7 @@ var _ = Describe("gRPC Service", func() {
 				if db != nil && dbErr == nil {
 					defer backend.CloseDB(db, logger)
 
-					service, err := backend.NewIoTService(logger, db)
+					service, err := backend.NewIoTService(logger, db, nil)
 					Expect(err).NotTo(HaveOccurred())
 					Expect(service).NotTo(BeNil())
 				}
@@ -65,14 +65,14 @@ var _ = Describe("gRPC Service", func() {
 					defer backend.CloseDB(db, logger)
 				}
 
-				service, err := backend.NewIoTService(nil, db)
+				service, err := backend.NewIoTService(nil, db, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("logger"))
 				Expect(service).To(BeNil())
 			})
 
 			It("should return error when database is nil", func() {
-				service, err := backend.NewIoTService(logger, nil)
+				service, err := backend.NewIoTService(logger, nil, nil)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(ContainSubstring("database"))
 				Expect(service).To(BeNil())
@@ -98,7 +98,7 @@ var _ = Describe("gRPC Service", func() {
 				}
 				defer backend.CloseDB(db, logger)
 
-				service, err := backend.NewIoTService(logger, db)
+				service, err := backend.NewIoTService(logger, db, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				ctx := context.Background()
@@ -131,7 +131,7 @@ var _ = Describe("gRPC Service", func() {
 				}
 				defer backend.CloseDB(db, logger)
 
-				service, err := backend.NewIoTService(logger, db)
+				service, err := backend.NewIoTService(logger, db, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				ctx := context.Background()
@@ -160,7 +160,7 @@ var _ = Describe("gRPC Service", func() {
 				}
 				defer backend.CloseDB(db, logger)
 
-				service, err := backend.NewIoTService(logger, db)
+				service, err := backend.NewIoTService(logger, db, nil)
 				Expect(err).NotTo(HaveOccurred())
 
 				ctx := context.Background()
