@@ -1,7 +1,9 @@
+// Package main provides the unified CLI entry point for the demo-app services.
 package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -37,7 +39,9 @@ func init() {
 	rootCmd.PersistentFlags().String("log-level", "info", "log level (debug, info, warn, error)")
 
 	// Bind flags to viper
-	_ = viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level"))
+	if err := viper.BindPFlag("log.level", rootCmd.PersistentFlags().Lookup("log-level")); err != nil {
+		log.Fatalf("failed to bind log-level flag: %v", err)
+	}
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -196,7 +196,8 @@ var _ = Describe("Frontend Server", func() {
 			server, err := frontend.NewServer(config)
 			Expect(err).NotTo(HaveOccurred())
 
-			err = server.Shutdown()
+			ctx := context.Background()
+			err = server.Shutdown(ctx)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -210,10 +211,11 @@ var _ = Describe("Frontend Server", func() {
 			server, err := frontend.NewServer(config)
 			Expect(err).NotTo(HaveOccurred())
 
-			err1 := server.Shutdown()
+			ctx := context.Background()
+			err1 := server.Shutdown(ctx)
 			Expect(err1).NotTo(HaveOccurred())
 
-			err2 := server.Shutdown()
+			err2 := server.Shutdown(ctx)
 			Expect(err2).NotTo(HaveOccurred())
 		})
 	})

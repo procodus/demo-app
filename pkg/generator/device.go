@@ -1,3 +1,7 @@
+// Package generator provides IoT device simulation and sensor data generation.
+// It includes functionality for creating synthetic IoT devices with realistic
+// sensor readings that follow environmental patterns and correlations.
+// Note: Uses math/rand for data generation which is acceptable for simulation purposes.
 package generator
 
 import (
@@ -6,9 +10,11 @@ import (
 	"time"
 
 	"github.com/brianvoe/gofakeit/v7"
+
 	"procodus.dev/demo-app/pkg/iot"
 )
 
+// IoTDevice represents a simulated IoT device with metadata.
 type IoTDevice struct {
 	Timestamp  time.Time
 	DeviceID   string  `fake:"{uuid}"`
@@ -20,6 +26,7 @@ type IoTDevice struct {
 	Longitude  float64 `fake:"{longitude}"`
 }
 
+// IoTDataGenerator generates realistic sensor readings with environmental correlations.
 type IoTDataGenerator struct {
 	deviceID         string
 	baselineTemp     float64
@@ -30,6 +37,8 @@ type IoTDataGenerator struct {
 	lastPressure     float64
 }
 
+// NewIoTDevice creates a new IoT device with randomized metadata using gofakeit.
+// Note: Uses math/rand via gofakeit for device generation which is acceptable for simulation.
 func NewIoTDevice() *IoTDevice {
 	var device IoTDevice
 	err := gofakeit.Struct(&device)
@@ -40,6 +49,9 @@ func NewIoTDevice() *IoTDevice {
 	return &device
 }
 
+// NewIoTGenerator creates a new sensor data generator for the specified device.
+// The generator maintains state to produce correlated readings over time.
+// Note: Uses math/rand for baseline generation which is acceptable for simulation.
 func NewIoTGenerator(deviceID string) *IoTDataGenerator {
 	return &IoTDataGenerator{
 		deviceID:         deviceID,

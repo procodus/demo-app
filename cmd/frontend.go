@@ -1,7 +1,9 @@
+// Package main provides the unified CLI entry point for the demo-app services.
 package main
 
 import (
 	"context"
+	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -28,8 +30,12 @@ func init() {
 	frontendCmd.Flags().String("backend-addr", "localhost:9090", "Backend gRPC server address")
 
 	// Bind flags to viper
-	_ = viper.BindPFlag("frontend.http.port", frontendCmd.Flags().Lookup("http-port"))
-	_ = viper.BindPFlag("frontend.backend.addr", frontendCmd.Flags().Lookup("backend-addr"))
+	if err := viper.BindPFlag("frontend.http.port", frontendCmd.Flags().Lookup("http-port")); err != nil {
+		log.Fatalf("failed to bind http-port flag: %v", err)
+	}
+	if err := viper.BindPFlag("frontend.backend.addr", frontendCmd.Flags().Lookup("backend-addr")); err != nil {
+		log.Fatalf("failed to bind backend-addr flag: %v", err)
+	}
 }
 
 func runFrontend(_ *cobra.Command, _ []string) error {

@@ -1,0 +1,298 @@
+version: '3'
+
+vars:
+  BINARY_NAME: demo-app
+  BUILD_DIR: ./bin
+  MAIN_PACKAGE: ./cmd
+  PROTO_DIR: ./api/proto
+  PKG_DIR: ./pkg
+  INTERNAL_DIR: ./internal
+
+tasks:
+  default:
+    desc: Show available tasks
+    cmds:
+      - task --list
+
+  # Build tasks
+  build:
+    desc: Build all applications (unified CLI binary)
+    cmds:
+      - task: clean
+      - go build -o {{.BUILD_DIR}}/{{.BINARY_NAME}} {{.MAIN_PACKAGE}}
+    sources:
+      - '**/*.go'
+      - 'go.mod'
+      - 'go.sum'
+    generates:
+      - '{{.BUILD_DIR}}/{{.BINARY_NAME}}'
+
+  build:generator:
+    desc: Build generator (same as build - unified binary)
+    cmds:
+      - task: build
+
+  build:backend:
+    desc: Build backend (same as build - unified binary)
+    cmds:
+      - task: build
+
+  build:frontend:
+    desc: Build frontend (same as build - unified binary)
+    cmds:
+      - task: build
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -rf {{.BUILD_DIR}}
+      - mkdir -p {{.BUILD_DIR}}
+
+  # Run tasks
+  run:generator:
+    desc: Run the data generator
+    cmds:
+      - go run {{.MAIN_PACKAGE}} generator
+
+  run:backend:
+    desc: Run the backend server
+    cmds:
+      - go run {{.MAIN_PACKAGE}} backend
+
+  run:frontend:
+    desc: Run the frontend server
+    cmds:
+      - go run {{.MAIN_PACKAGE}} frontend
+
+  # Test tasks
+  test:
+    desc: Run all tests (unit + e2e)
+    cmds:
+      - task: test:unit
+      - task: test:e2e
+
+  test:unit:
+    desc: Run unit tests only
+    cmds:
+      - go test -short -race -coverprofile=coverage.out ./...
+
+  test:e2e:
+    desc: Run all E2E tests
+    cmds:
+      - task: test:e2e:backend
+      - task: test:e2e:mq
+
+  test:e2e:backend:
+    desc: Run backend E2E tests
+    cmds:
+      - go test -v -timeout 5m ./test/e2e/backend/...
+
+  test:e2e:mq:
+    desc: Run MQ client E2E tests
+    cmds:
+      - go test -v -timeout 5m ./test/e2e/mq/...
+
+  test:coverage:
+    desc: Run tests with coverage report
+    cmds:
+      - go test -race -coverprofile=coverage.out -covermode=atomic ./...
+      - go tool cover -html=coverage.out -o coverage.html
+      - echo "Coverage report generated at coverage.html"
+
+  test:watch:
+    desc: Watch and run tests on file changes
+    cmds:
+      - |
+        while true; do
+          go test ./...
+          inotifywait -qre modify .
+        done
+
+  # Code quality tasks
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  lint:fix:
+    desc: Run golangci-lint with auto-fix
+    cmds:
+      - golangci-lint run --fix ./...
+
+  fmt:
+    desc: Format code with gofmt and goimports
+    cmds:
+      - go fmt ./...
+      - goimports -w .
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  # Code generation tasks
+  proto:generate:
+    desc: Generate gRPC code from proto files
+    cmds:
+      - |
+        protoc --go_out=. --go-grpc_out=. \
+          --go_opt=paths=source_relative \
+          --go-grpc_opt=paths=source_relative \
+          {{.PROTO_DIR}}/*.proto
+    sources:
+      - '{{.PROTO_DIR}}/*.proto'
+    generates:
+      - '{{.PKG_DIR}}/iot/*.pb.go'
+
+  templ:generate:
+    desc: Generate Templ code from .templ files
+    cmds:
+      - templ generate -path {{.INTERNAL_DIR}}/frontend
+    sources:
+      - '{{.INTERNAL_DIR}}/frontend/*.templ'
+    generates:
+      - '{{.INTERNAL_DIR}}/frontend/*_templ.go'
+
+  generate:
+    desc: Run all code generation tasks
+    cmds:
+      - task: proto:generate
+      - task: templ:generate
+
+  # Docker tasks
+  docker:build:
+    desc: Build all Docker images
+    cmds:
+      - task: docker:build:generator
+      - task: docker:build:backend
+      - task: docker:build:frontend
+
+  docker:build:generator:
+    desc: Build generator Docker image
+    cmds:
+      - docker buildx build -t demo-app-generator:latest -f deployments/Dockerfile.generator .
+
+  docker:build:backend:
+    desc: Build backend Docker image
+    cmds:
+      - docker buildx build -t demo-app-backend:latest -f deployments/Dockerfile.backend .
+
+  docker:build:frontend:
+    desc: Build frontend Docker image
+    cmds:
+      - docker buildx build -t demo-app-frontend:latest -f deployments/Dockerfile.frontend .
+
+  # Infrastructure tasks
+  infra:up:
+    desc: Start local infrastructure (RabbitMQ + PostgreSQL)
+    cmds:
+      - docker run -d --name demo-rabbitmq -p 5672:5672 -p 15672:15672 rabbitmq:3-management || echo "RabbitMQ already running"
+      - docker run -d --name demo-postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=iot -p 5432:5432 postgres:16-alpine || echo "PostgreSQL already running"
+      - echo "Waiting for services to be ready..."
+      - sleep 5
+      - 'echo "RabbitMQ Management UI: http://localhost:15672 (guest/guest)"'
+      - 'echo "PostgreSQL: localhost:5432 (postgres/postgres)"'
+
+  infra:down:
+    desc: Stop local infrastructure
+    cmds:
+      - docker stop demo-rabbitmq demo-postgres || true
+      - docker rm demo-rabbitmq demo-postgres || true
+
+  infra:logs:
+    desc: Show infrastructure logs
+    cmds:
+      - docker logs -f demo-rabbitmq demo-postgres
+
+  infra:clean:
+    desc: Stop and remove infrastructure with volumes
+    cmds:
+      - task: infra:down
+      - docker volume prune -f
+
+  # Development workflow tasks
+  dev:
+    desc: Start full development environment
+    cmds:
+      - task: infra:up
+      - echo "Infrastructure started. Run services with:"
+      - 'echo "  task run:generator"'
+      - 'echo "  task run:backend"'
+      - 'echo "  task run:frontend"'
+
+  dev:stop:
+    desc: Stop development environment
+    cmds:
+      - task: infra:down
+
+  # CI tasks
+  ci:
+    desc: Run all CI checks (lint, test, build)
+    cmds:
+      - task: lint
+      - task: test:unit
+      - task: build
+
+  ci:full:
+    desc: Run full CI pipeline including E2E tests
+    cmds:
+      - task: lint
+      - task: test:unit
+      - task: test:e2e
+      - task: build
+
+  # Dependency management
+  deps:
+    desc: Download dependencies
+    cmds:
+      - go mod download
+
+  deps:tidy:
+    desc: Tidy dependencies
+    cmds:
+      - go mod tidy
+
+  deps:verify:
+    desc: Verify dependencies
+    cmds:
+      - go mod verify
+
+  deps:update:
+    desc: Update all dependencies
+    cmds:
+      - go get -u ./...
+      - go mod tidy
+
+  # Install tools
+  tools:install:
+    desc: Install required development tools
+    cmds:
+      - go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+      - go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
+      - go install github.com/a-h/templ/cmd/templ@latest
+      - go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+      - go install golang.org/x/tools/cmd/goimports@latest
+
+  # Database tasks
+  db:migrate:
+    desc: Run database migrations (auto-migrate via GORM)
+    cmds:
+      - echo "Migrations are handled automatically by GORM AutoMigrate"
+      - echo "Run the backend service to auto-migrate the database"
+
+  # Help and info tasks
+  version:
+    desc: Show version information
+    cmds:
+      - go version
+      - task --version
+      - docker --version
+
+  info:
+    desc: Show project information
+    cmds:
+      - echo "Demo App - IoT Data Pipeline"
+      - echo "=============================="
+      - 'echo "Go version: $(go version)"'
+      - echo "Project structure:"
+      - tree -L 2 -I 'bin|vendor|node_modules'

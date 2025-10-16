@@ -1,7 +1,9 @@
+// Package main provides the unified CLI entry point for the demo-app services.
 package main
 
 import (
 	"context"
+	"log"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,16 +38,36 @@ func init() {
 	backendCmd.Flags().Int("grpc-port", 9090, "gRPC server port")
 
 	// Bind flags to viper
-	_ = viper.BindPFlag("backend.db.host", backendCmd.Flags().Lookup("db-host"))
-	_ = viper.BindPFlag("backend.db.port", backendCmd.Flags().Lookup("db-port"))
-	_ = viper.BindPFlag("backend.db.user", backendCmd.Flags().Lookup("db-user"))
-	_ = viper.BindPFlag("backend.db.password", backendCmd.Flags().Lookup("db-password"))
-	_ = viper.BindPFlag("backend.db.name", backendCmd.Flags().Lookup("db-name"))
-	_ = viper.BindPFlag("backend.db.sslmode", backendCmd.Flags().Lookup("db-sslmode"))
-	_ = viper.BindPFlag("backend.rabbitmq.url", backendCmd.Flags().Lookup("rabbitmq-url"))
-	_ = viper.BindPFlag("backend.rabbitmq.queue_name", backendCmd.Flags().Lookup("queue-name"))
-	_ = viper.BindPFlag("backend.rabbitmq.device_queue_name", backendCmd.Flags().Lookup("device-queue-name"))
-	_ = viper.BindPFlag("backend.grpc.port", backendCmd.Flags().Lookup("grpc-port"))
+	if err := viper.BindPFlag("backend.db.host", backendCmd.Flags().Lookup("db-host")); err != nil {
+		log.Fatalf("failed to bind db-host flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.db.port", backendCmd.Flags().Lookup("db-port")); err != nil {
+		log.Fatalf("failed to bind db-port flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.db.user", backendCmd.Flags().Lookup("db-user")); err != nil {
+		log.Fatalf("failed to bind db-user flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.db.password", backendCmd.Flags().Lookup("db-password")); err != nil {
+		log.Fatalf("failed to bind db-password flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.db.name", backendCmd.Flags().Lookup("db-name")); err != nil {
+		log.Fatalf("failed to bind db-name flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.db.sslmode", backendCmd.Flags().Lookup("db-sslmode")); err != nil {
+		log.Fatalf("failed to bind db-sslmode flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.rabbitmq.url", backendCmd.Flags().Lookup("rabbitmq-url")); err != nil {
+		log.Fatalf("failed to bind rabbitmq-url flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.rabbitmq.queue_name", backendCmd.Flags().Lookup("queue-name")); err != nil {
+		log.Fatalf("failed to bind queue-name flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.rabbitmq.device_queue_name", backendCmd.Flags().Lookup("device-queue-name")); err != nil {
+		log.Fatalf("failed to bind device-queue-name flag: %v", err)
+	}
+	if err := viper.BindPFlag("backend.grpc.port", backendCmd.Flags().Lookup("grpc-port")); err != nil {
+		log.Fatalf("failed to bind grpc-port flag: %v", err)
+	}
 }
 
 func runBackend(_ *cobra.Command, _ []string) error {

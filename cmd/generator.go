@@ -1,7 +1,9 @@
+// Package main provides the unified CLI entry point for the demo-app services.
 package main
 
 import (
 	"context"
+	"log"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -32,11 +34,21 @@ func init() {
 	generatorCmd.Flags().Duration("interval", 5*time.Second, "Interval between data generation")
 
 	// Bind flags to viper
-	_ = viper.BindPFlag("generator.rabbitmq.url", generatorCmd.Flags().Lookup("rabbitmq-url"))
-	_ = viper.BindPFlag("generator.rabbitmq.queue_name", generatorCmd.Flags().Lookup("queue-name"))
-	_ = viper.BindPFlag("generator.rabbitmq.device_queue_name", generatorCmd.Flags().Lookup("device-queue-name"))
-	_ = viper.BindPFlag("generator.producer_count", generatorCmd.Flags().Lookup("producer-count"))
-	_ = viper.BindPFlag("generator.interval", generatorCmd.Flags().Lookup("interval"))
+	if err := viper.BindPFlag("generator.rabbitmq.url", generatorCmd.Flags().Lookup("rabbitmq-url")); err != nil {
+		log.Fatalf("failed to bind rabbitmq-url flag: %v", err)
+	}
+	if err := viper.BindPFlag("generator.rabbitmq.queue_name", generatorCmd.Flags().Lookup("queue-name")); err != nil {
+		log.Fatalf("failed to bind queue-name flag: %v", err)
+	}
+	if err := viper.BindPFlag("generator.rabbitmq.device_queue_name", generatorCmd.Flags().Lookup("device-queue-name")); err != nil {
+		log.Fatalf("failed to bind device-queue-name flag: %v", err)
+	}
+	if err := viper.BindPFlag("generator.producer_count", generatorCmd.Flags().Lookup("producer-count")); err != nil {
+		log.Fatalf("failed to bind producer-count flag: %v", err)
+	}
+	if err := viper.BindPFlag("generator.interval", generatorCmd.Flags().Lookup("interval")); err != nil {
+		log.Fatalf("failed to bind interval flag: %v", err)
+	}
 }
 
 func runGenerator(_ *cobra.Command, _ []string) error {

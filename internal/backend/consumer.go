@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -169,6 +170,20 @@ func (c *Consumer) saveSensorReading(ctx context.Context, reading *iot.SensorRea
 
 	// Save to database
 	if err := c.db.WithContext(ctx).Create(dbReading).Error; err != nil {
+		// Check for foreign key violation (device doesn't exist)
+		// GORM may wrap it as ErrForeignKeyViolated, or it may be a raw PostgreSQL error
+		// PostgreSQL SQLSTATE 23503: foreign_key_violation
+		if errors.Is(err, gorm.ErrForeignKeyViolated) ||
+			strings.Contains(err.Error(), "violates foreign key constraint") ||
+			strings.Contains(err.Error(), "SQLSTATE 23503") {
+			// Foreign key violation - device doesn't exist
+			// Acknowledge message anyway since retrying won't help
+			c.logger.Warn("sensor reading for non-existent device, acknowledging message",
+				"device_id", reading.GetDeviceId(),
+				"error", err,
+			)
+			return nil
+		}
 		return fmt.Errorf("failed to create sensor reading: %w", err)
 	}
 

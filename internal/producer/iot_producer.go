@@ -91,5 +91,6 @@ func (p *Producer) RandomDataPoint(_ context.Context) error {
 
 	// Publish to message queue
 	// TODO: Pass context to Push when MQ client supports context-aware operations
+	//nolint:contextcheck // MQ client Push method doesn't accept context parameter yet
 	return p.MQClient.Push(message)
 }

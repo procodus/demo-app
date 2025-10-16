@@ -17,7 +17,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	s.logger.Debug("handling index request")
 
 	// Render index template
-	if err := renderIndex(w, r.Context()); err != nil {
+	if err := renderIndex(r.Context(), w); err != nil {
 		s.logger.Error("failed to render index", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -40,7 +40,7 @@ func (s *Server) handleDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render devices page
-	if err := renderDevices(w, r.Context(), resp.GetDevices()); err != nil {
+	if err := renderDevices(r.Context(), w, resp.GetDevices()); err != nil {
 		s.logger.Error("failed to render devices", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -81,7 +81,7 @@ func (s *Server) handleDevice(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render device detail page
-	if err := renderDevice(w, r.Context(), deviceResp.GetDevice(), readingsResp.GetReading()); err != nil {
+	if err := renderDevice(r.Context(), w, deviceResp.GetDevice(), readingsResp.GetReading()); err != nil {
 		s.logger.Error("failed to render device", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -104,7 +104,7 @@ func (s *Server) handleAPIDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Render devices list fragment
-	if err := renderDevicesList(w, r.Context(), resp.GetDevices()); err != nil {
+	if err := renderDevicesList(r.Context(), w, resp.GetDevices()); err != nil {
 		s.logger.Error("failed to render devices list", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -134,7 +134,7 @@ func (s *Server) handleAPIDeviceReadings(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Render readings list fragment
-	if err := renderReadingsList(w, r.Context(), resp.GetReading(), resp.GetNextPageToken()); err != nil {
+	if err := renderReadingsList(r.Context(), w, resp.GetReading(), resp.GetNextPageToken()); err != nil {
 		s.logger.Error("failed to render readings list", "error", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return

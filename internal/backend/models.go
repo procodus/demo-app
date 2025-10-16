@@ -29,19 +29,19 @@ func (SensorReading) TableName() string {
 
 // IoTDevice represents an IoT device stored in the database.
 type IoTDevice struct {
+	SensorReadings []SensorReading `gorm:"foreignKey:DeviceID;references:DeviceID"`
+	LastSeen       time.Time       `gorm:"index:idx_last_seen"`
+	CreatedAt      time.Time       `gorm:"autoCreateTime"`
+	UpdatedAt      time.Time       `gorm:"autoUpdateTime"`
+	DeletedAt      gorm.DeletedAt  `gorm:"index"`
 	DeviceID       string          `gorm:"uniqueIndex;not null"`
 	Location       string          `gorm:"not null"`
 	MACAddress     string          `gorm:"not null"`
 	IPAddress      string          `gorm:"not null"`
 	Firmware       string          `gorm:"not null"`
-	LastSeen       time.Time       `gorm:"index:idx_last_seen"`
-	CreatedAt      time.Time       `gorm:"autoCreateTime"`
-	UpdatedAt      time.Time       `gorm:"autoUpdateTime"`
-	DeletedAt      gorm.DeletedAt  `gorm:"index"`
+	ID             uint            `gorm:"primaryKey"`
 	Latitude       float32         `gorm:"not null"`
 	Longitude      float32         `gorm:"not null"`
-	ID             uint            `gorm:"primaryKey"`
-	SensorReadings []SensorReading `gorm:"foreignKey:DeviceID;references:DeviceID"`
 }
 
 // TableName specifies the table name for IoTDevice model.

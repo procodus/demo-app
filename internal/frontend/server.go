@@ -28,13 +28,13 @@ type Server struct {
 
 // ServerConfig holds the configuration for the Server.
 type ServerConfig struct {
+	// Backend gRPC configuration
+	BackendGRPCAddr string
+
 	Logger *slog.Logger
 
 	// HTTP server configuration
 	HTTPPort int
-
-	// Backend gRPC configuration
-	BackendGRPCAddr string
 }
 
 // NewServer creates a new frontend Server instance.
@@ -128,12 +128,15 @@ func (s *Server) Run(ctx context.Context) error {
 		}
 	}
 
-	// Shutdown
-	return s.Shutdown()
+	// Shutdown with timeout context
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+	//nolint:contextcheck // Intentionally creating new context for shutdown with timeout
+	return s.Shutdown(shutdownCtx)
 }
 
 // Shutdown gracefully shuts down the server.
-func (s *Server) Shutdown() error {
+func (s *Server) Shutdown(ctx context.Context) error {
 	s.logger.Info("shutting down frontend server")
 
 	var shutdownErr error
@@ -141,9 +144,6 @@ func (s *Server) Shutdown() error {
 	// Shutdown HTTP server
 	if s.httpServer != nil {
 		s.logger.Info("stopping HTTP server")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
 		if err := s.httpServer.Shutdown(ctx); err != nil {
 			s.logger.Error("failed to shutdown HTTP server", "error", err)
 			shutdownErr = fmt.Errorf("HTTP server shutdown error: %w", err)

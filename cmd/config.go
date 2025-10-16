@@ -1,6 +1,8 @@
+// Package main provides the unified CLI entry point for the demo-app services.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -30,7 +32,8 @@ func InitConfig(cfgFile string) error {
 
 	// Read config file if it exists
 	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+		var configNotFoundErr viper.ConfigFileNotFoundError
+		if errors.As(err, &configNotFoundErr) {
 			// Config file not found; rely on env vars and defaults
 			return nil
 		}
