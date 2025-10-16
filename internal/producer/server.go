@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"procodus.dev/demo-app/pkg/metrics"
 	"procodus.dev/demo-app/pkg/mq"
 )
 
@@ -27,6 +28,10 @@ type ServerConfig struct {
 	Interval time.Duration
 	// ProducerCount is the number of concurrent producers
 	ProducerCount int
+	// Metrics is the optional Prometheus metrics collector
+	Metrics *metrics.ProducerMetrics
+	// MQMetrics is the optional Prometheus metrics collector for MQ operations
+	MQMetrics *metrics.MQMetrics
 }
 
 // Server manages multiple producer instances.
@@ -37,6 +42,7 @@ type Server struct {
 	clients       []*mq.Client
 	deviceClients []*mq.Client
 	wg            sync.WaitGroup
+	metrics       *metrics.ProducerMetrics
 }
 
 var (
@@ -65,6 +71,7 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 		clients:       make([]*mq.Client, 0, cfg.ProducerCount),
 		deviceClients: make([]*mq.Client, 0, cfg.ProducerCount),
 		logger:        cfg.Logger,
+		metrics:       cfg.Metrics,
 	}
 
 	// Create producer instances with their own MQ clients
@@ -75,14 +82,29 @@ func NewServer(cfg *ServerConfig) (*Server, error) {
 			slog.Int("producer_id", i),
 		))
 
+		// Enable MQ metrics if configured
+		if cfg.MQMetrics != nil {
+			client.SetMetrics(cfg.MQMetrics)
+		}
+
 		// Create MQ client for device creation messages
 		deviceClient := mq.New(cfg.DeviceQueueName, cfg.RabbitMQURL, cfg.Logger.With(
 			slog.String("component", "device-mq-client"),
 			slog.Int("producer_id", i),
 		))
 
+		// Enable MQ metrics if configured
+		if cfg.MQMetrics != nil {
+			deviceClient.SetMetrics(cfg.MQMetrics)
+		}
+
 		// Create producer with both clients
 		producer := NewProducer(client, deviceClient)
+
+		// Enable producer metrics if configured
+		if cfg.Metrics != nil {
+			producer.SetMetrics(cfg.Metrics)
+		}
 
 		s.clients = append(s.clients, client)
 		s.deviceClients = append(s.deviceClients, deviceClient)
@@ -144,6 +166,12 @@ func (s *Server) Run(ctx context.Context) error {
 // runProducer runs a single producer instance, generating data points at configured intervals.
 func (s *Server) runProducer(ctx context.Context, id int, producer *Producer) {
 	defer s.wg.Done()
+
+	// Track active producer
+	if s.metrics != nil {
+		s.metrics.ActiveProducers.Inc()
+		defer s.metrics.ActiveProducers.Dec()
+	}
 
 	ticker := time.NewTicker(s.config.Interval)
 	defer ticker.Stop()
