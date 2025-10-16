@@ -247,7 +247,7 @@ func (s *Server) Run(ctx context.Context) error {
 
 	// Shutdown servers
 	if metricsServer != nil {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 5*time.Second)
 		defer shutdownCancel()
 		if err := metricsServer.Shutdown(shutdownCtx); err != nil {
 			s.logger.Error("failed to shutdown metrics server", "error", err)

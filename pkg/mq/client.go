@@ -10,6 +10,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	amqp "github.com/rabbitmq/amqp091-go"
+
 	"procodus.dev/demo-app/pkg/metrics"
 )
 
@@ -306,7 +307,7 @@ func (client *Client) Push(ctx context.Context, data []byte) error {
 		case <-ctx.Done():
 			// Track failure
 			if client.metrics != nil {
-				client.metrics.PushFailures.WithLabelValues(client.queueName, "context_cancelled").Inc()
+				client.metrics.PushFailures.WithLabelValues(client.queueName, "context_canceled").Inc()
 			}
 			return ctx.Err()
 		case confirm := <-client.notifyConfirm:

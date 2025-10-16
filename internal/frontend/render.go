@@ -50,7 +50,7 @@ func renderReadingsList(ctx context.Context, w http.ResponseWriter, readings []*
 }
 
 // trackTemplateRender wraps template rendering with metrics tracking.
-func trackTemplateRender(ctx context.Context, w http.ResponseWriter, m *metrics.FrontendMetrics, templateName string, renderFunc func() error) error {
+func trackTemplateRender(_ context.Context, _ http.ResponseWriter, m *metrics.FrontendMetrics, templateName string, renderFunc func() error) error {
 	// If metrics not enabled, just render
 	if m == nil {
 		return renderFunc()

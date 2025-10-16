@@ -189,6 +189,19 @@ linters:
         linters:
           - dupl
 
+      # Allow code duplication in frontend gRPC client wrapper methods
+      - path: 'internal/frontend/server\.go$'
+        text: "lines are duplicate of"
+        linters:
+          - dupl
+
+      # Allow complex server startup logic in backend Run method
+      - path: 'internal/backend/server\.go$'
+        text: "(cyclomatic complexity .* of func `.*Run` is high|calculated cyclomatic complexity for function Run)"
+        linters:
+          - gocyclo
+          - cyclop
+
       # Allow weak random (math/rand) for test data and simulation
       - path: '(internal/producer|pkg/generator)/.*\.go$'
         text: "G404.*weak random"
