@@ -57,13 +57,17 @@ func StartRabbitMQ(ctx context.Context, config *RabbitMQConfig) (testcontainers.
 	// Get host and port
 	host, err := container.Host(ctx)
 	if err != nil {
-		_ = container.Terminate(ctx)
+		if termErr := container.Terminate(ctx); termErr != nil {
+			return nil, "", fmt.Errorf("failed to get container host: %w (cleanup error: %w)", err, termErr)
+		}
 		return nil, "", fmt.Errorf("failed to get container host: %w", err)
 	}
 
 	port, err := container.MappedPort(ctx, "5672")
 	if err != nil {
-		_ = container.Terminate(ctx)
+		if termErr := container.Terminate(ctx); termErr != nil {
+			return nil, "", fmt.Errorf("failed to get container port: %w (cleanup error: %w)", err, termErr)
+		}
 		return nil, "", fmt.Errorf("failed to get container port: %w", err)
 	}
 

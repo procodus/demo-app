@@ -1,3 +1,4 @@
+// Package mock provides mock implementations of the mq package interfaces for testing.
 package mock
 
 import (

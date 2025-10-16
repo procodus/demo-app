@@ -145,6 +145,7 @@ linters:
           - goconst
           - funlen
           - perfsprint
+          - unparam  # Unused parameters in test helpers are acceptable
 
       # Exclude forbidden identifiers in main.go (may need fmt.Printf for debugging startup)
       - path: 'cmd/.*/main\.go$'
@@ -162,6 +163,47 @@ linters:
           - gochecknoinits
           - govet
           - staticcheck
+          - revive
+
+      # Allow init functions in cmd/ - required by Cobra framework
+      - path: 'cmd/.*\.go$'
+        linters:
+          - gochecknoinits
+
+      # Allow complex retry logic in MQ client Push method
+      - path: 'pkg/mq/client\.go$'
+        text: "(cyclomatic complexity .* of func `.*Push` is high|calculated cyclomatic complexity for function Push)"
+        linters:
+          - gocyclo
+          - cyclop
+
+      # Allow code duplication in consumer constructors (similar validation logic)
+      - path: 'internal/backend/(consumer|device_consumer)\.go$'
+        text: "lines are duplicate of"
+        linters:
+          - dupl
+
+      # Allow code duplication in frontend handlers (similar gRPC call patterns)
+      - path: 'internal/frontend/handlers\.go$'
+        text: "lines are duplicate of"
+        linters:
+          - dupl
+
+      # Allow weak random (math/rand) for test data and simulation
+      - path: '(internal/producer|pkg/generator)/.*\.go$'
+        text: "G404.*weak random"
+        linters:
+          - gosec
+
+      # Allow struct field alignment warnings (minor performance optimization)
+      - linters:
+          - govet
+        text: "fieldalignment:"
+
+      # Allow MockClient naming in mock package (clear and intentional)
+      - path: 'pkg/mq/mock/.*\.go$'
+        text: "type name will be used as mock.MockClient"
+        linters:
           - revive
 
       # Exclude some staticcheck messages

@@ -8,7 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"procodus.dev/demo-app/pkg/metrics"
 )
 
 // Client is a RabbitMQ client that handles connection management,
@@ -25,6 +27,7 @@ type Client struct {
 	notifyConfirm   chan amqp.Confirmation
 	queueName       string
 	isReady         bool
+	metrics         *metrics.MQMetrics // Optional metrics
 }
 
 const (
@@ -33,9 +36,6 @@ const (
 
 	// When setting up the channel after a channel exception.
 	reInitDelay = 2 * time.Second
-
-	// When resending messages the server didn't confirm.
-	resendDelay = 5 * time.Second
 
 	// Initial backoff delay for Push retries.
 	initialBackoff = 100 * time.Millisecond
@@ -71,6 +71,12 @@ func New(queueName, addr string, l *slog.Logger) *Client {
 	return &client
 }
 
+// SetMetrics sets the metrics collector for this client.
+// This should be called before the client starts processing messages.
+func (client *Client) SetMetrics(m *metrics.MQMetrics) {
+	client.metrics = m
+}
+
 // handleReconnect will wait for a connection error on
 // notifyConnClose, and then continuously attempt to reconnect.
 func (client *Client) handleReconnect(addr string) {
@@ -80,6 +86,11 @@ func (client *Client) handleReconnect(addr string) {
 		client.m.Unlock()
 
 		client.infolog.Info("attempting to connect")
+
+		// Track reconnection attempt
+		if client.metrics != nil {
+			client.metrics.ReconnectAttempts.Inc()
+		}
 
 		conn, err := client.connect(addr)
 		if err != nil {
@@ -103,11 +114,21 @@ func (client *Client) handleReconnect(addr string) {
 func (client *Client) connect(addr string) (*amqp.Connection, error) {
 	conn, err := amqp.Dial(addr)
 	if err != nil {
+		// Update connection status metric
+		if client.metrics != nil {
+			client.metrics.ConnectionStatus.Set(0)
+		}
 		return nil, err
 	}
 
 	client.changeConnection(conn)
 	client.infolog.Info("connected")
+
+	// Update connection status metric
+	if client.metrics != nil {
+		client.metrics.ConnectionStatus.Set(1)
+	}
+
 	return conn, nil
 }
 
@@ -204,6 +225,13 @@ func (client *Client) changeChannel(channel *amqp.Channel) {
 // allowing time for automatic reconnection to succeed.
 // After maxRetryAttempts (5) failed attempts, returns a fatal error.
 func (client *Client) Push(ctx context.Context, data []byte) error {
+	// Track duration
+	var timer *prometheus.Timer
+	if client.metrics != nil {
+		timer = prometheus.NewTimer(client.metrics.PushDuration.WithLabelValues(client.queueName))
+		defer timer.ObserveDuration()
+	}
+
 	backoff := initialBackoff
 	retryCount := 0
 
@@ -213,6 +241,12 @@ func (client *Client) Push(ctx context.Context, data []byte) error {
 			client.errlog.Error("maximum retry attempts exceeded",
 				"retry_count", retryCount,
 				"max_attempts", maxRetryAttempts)
+
+			// Track failure
+			if client.metrics != nil {
+				client.metrics.PushFailures.WithLabelValues(client.queueName, "max_retries_exceeded").Inc()
+			}
+
 			return errMaxRetriesExceeded
 		}
 
@@ -270,9 +304,18 @@ func (client *Client) Push(ctx context.Context, data []byte) error {
 		// Wait for confirmation
 		select {
 		case <-ctx.Done():
+			// Track failure
+			if client.metrics != nil {
+				client.metrics.PushFailures.WithLabelValues(client.queueName, "context_cancelled").Inc()
+			}
 			return ctx.Err()
 		case confirm := <-client.notifyConfirm:
 			if confirm.Ack {
+				// Track success
+				if client.metrics != nil {
+					client.metrics.MessagesPushed.WithLabelValues(client.queueName).Inc()
+				}
+
 				if retryCount > 0 {
 					client.infolog.Info("push confirmed after retries",
 						"delivery_tag", confirm.DeliveryTag,
@@ -382,5 +425,11 @@ func (client *Client) Close() error {
 	}
 
 	client.isReady = false
+
+	// Update connection status metric
+	if client.metrics != nil {
+		client.metrics.ConnectionStatus.Set(0)
+	}
+
 	return nil
 }

@@ -11,14 +11,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	testcontainers "github.com/testcontainers/testcontainers-go"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
-
-	testcontainers "github.com/testcontainers/testcontainers-go"
 
 	"procodus.dev/demo-app/internal/backend"
 	"procodus.dev/demo-app/internal/frontend"
@@ -32,23 +29,23 @@ func TestFrontend(t *testing.T) {
 }
 
 var (
-	// Infrastructure containers
+	// Infrastructure containers.
 	pgContainer testcontainers.Container
 	pgDSN       string
 
-	// Backend components
+	// Backend components.
 	testDB     *gorm.DB
 	grpcServer *grpc.Server
 	grpcAddr   string
 
-	// Frontend server
+	// Frontend server.
 	frontendServer *frontend.Server
 	frontendPort   int
 
-	// Shared logger
+	// Shared logger.
 	logger *slog.Logger
 
-	// Context for cleanup
+	// Context for cleanup.
 	ctx context.Context
 )
 
@@ -180,8 +177,8 @@ var _ = AfterSuite(func() {
 	logger.Info("frontend E2E test suite teardown complete")
 })
 
-// Helper function to create test devices in the database
-func createTestDevice(ctx context.Context, deviceID string) *iot.IoTDevice {
+// Helper function to create test devices in the database.
+func createTestDevice(_ context.Context, deviceID string) *iot.IoTDevice {
 	device := &iot.IoTDevice{
 		DeviceId:   deviceID,
 		Timestamp:  time.Now().Unix(),
@@ -195,14 +192,14 @@ func createTestDevice(ctx context.Context, deviceID string) *iot.IoTDevice {
 
 	// Save to database via gRPC (simulating device creation)
 	dbDevice := &backend.IoTDevice{
-		DeviceID:   device.DeviceId,
-		Location:   device.Location,
-		MACAddress: device.MacAddress,
-		IPAddress:  device.IpAddress,
-		Firmware:   device.Firmware,
-		Latitude:   device.Latitude,
-		Longitude:  device.Longitude,
-		LastSeen:   time.Unix(device.Timestamp, 0),
+		DeviceID:   device.GetDeviceId(),
+		Location:   device.GetLocation(),
+		MACAddress: device.GetMacAddress(),
+		IPAddress:  device.GetIpAddress(),
+		Firmware:   device.GetFirmware(),
+		Latitude:   device.GetLatitude(),
+		Longitude:  device.GetLongitude(),
+		LastSeen:   time.Unix(device.GetTimestamp(), 0),
 	}
 
 	err := testDB.Create(dbDevice).Error
@@ -211,8 +208,8 @@ func createTestDevice(ctx context.Context, deviceID string) *iot.IoTDevice {
 	return device
 }
 
-// Helper function to create test sensor reading
-func createTestSensorReading(ctx context.Context, deviceID string, timestamp time.Time) *iot.SensorReading {
+// Helper function to create test sensor reading.
+func createTestSensorReading(_ context.Context, deviceID string, timestamp time.Time) *iot.SensorReading {
 	reading := &iot.SensorReading{
 		DeviceId:     deviceID,
 		Timestamp:    timestamp.Unix(),
@@ -224,12 +221,12 @@ func createTestSensorReading(ctx context.Context, deviceID string, timestamp tim
 
 	// Save to database
 	dbReading := &backend.SensorReading{
-		DeviceID:     reading.DeviceId,
+		DeviceID:     reading.GetDeviceId(),
 		Timestamp:    timestamp,
-		Temperature:  reading.Temperature,
-		Humidity:     reading.Humidity,
-		Pressure:     reading.Pressure,
-		BatteryLevel: reading.BatteryLevel,
+		Temperature:  reading.GetTemperature(),
+		Humidity:     reading.GetHumidity(),
+		Pressure:     reading.GetPressure(),
+		BatteryLevel: reading.GetBatteryLevel(),
 	}
 
 	err := testDB.Create(dbReading).Error
@@ -238,36 +235,7 @@ func createTestSensorReading(ctx context.Context, deviceID string, timestamp tim
 	return reading
 }
 
-// Helper function to get the base URL for the frontend
+// Helper function to get the base URL for the frontend.
 func getFrontendURL(path string) string {
 	return fmt.Sprintf("http://localhost:%d%s", frontendPort, path)
-}
-
-// Mock gRPC server implementation for specific test scenarios
-type mockIoTService struct {
-	iot.UnimplementedIoTServiceServer
-	getAllDevicesFunc            func(ctx context.Context, req *iot.GetAllDevicesRequest) (*iot.GetAllDevicesResponse, error)
-	getDeviceFunc                func(ctx context.Context, req *iot.GetDeviceByIDRequest) (*iot.GetDeviceByIDResponse, error)
-	getSensorReadingByDeviceFunc func(ctx context.Context, req *iot.GetSensorReadingByDeviceIDRequest) (*iot.GetSensorReadingByDeviceIDResponse, error)
-}
-
-func (m *mockIoTService) GetAllDevice(ctx context.Context, req *iot.GetAllDevicesRequest) (*iot.GetAllDevicesResponse, error) {
-	if m.getAllDevicesFunc != nil {
-		return m.getAllDevicesFunc(ctx, req)
-	}
-	return nil, status.Error(codes.Unimplemented, "not implemented")
-}
-
-func (m *mockIoTService) GetDevice(ctx context.Context, req *iot.GetDeviceByIDRequest) (*iot.GetDeviceByIDResponse, error) {
-	if m.getDeviceFunc != nil {
-		return m.getDeviceFunc(ctx, req)
-	}
-	return nil, status.Error(codes.Unimplemented, "not implemented")
-}
-
-func (m *mockIoTService) GetSensorReadingByDeviceID(ctx context.Context, req *iot.GetSensorReadingByDeviceIDRequest) (*iot.GetSensorReadingByDeviceIDResponse, error) {
-	if m.getSensorReadingByDeviceFunc != nil {
-		return m.getSensorReadingByDeviceFunc(ctx, req)
-	}
-	return nil, status.Error(codes.Unimplemented, "not implemented")
 }
