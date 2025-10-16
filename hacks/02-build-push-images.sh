@@ -63,12 +63,12 @@ build_image() {
 
     log_info "Building image: ${LOCAL_IMAGE}"
     log_info "Context: ${PROJECT_ROOT}"
-    log_info "Dockerfile: deployments/Dockerfile"
+    log_info "Dockerfile: Dockerfile"
     echo ""
 
     # Build the image with BuildKit
     DOCKER_BUILDKIT=1 docker build \
-        --file deployments/Dockerfile \
+        --file Dockerfile \
         --tag "${LOCAL_IMAGE}" \
         --tag "${REGISTRY_IMAGE}" \
         --progress=plain \

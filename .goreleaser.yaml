@@ -1,0 +1,125 @@
+# GoReleaser configuration for demo-app
+# Documentation: https://goreleaser.com
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+# vim: set ts=2 sw=2 tw=0 fo=cnqoj
+
+version: 2
+
+project_name: demo-app
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod verify
+
+builds:
+  - id: demo-app
+    main: ./cmd
+    binary: demo-app
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+    flags:
+      - -trimpath
+
+archives:
+  - id: demo-app-archive
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    files:
+      - LICENSE*
+      - README.md
+      - CLAUDE.md
+      - CLI_USAGE.md
+
+checksum:
+  name_template: 'checksums.txt'
+  algorithm: sha256
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+      - "^chore:"
+      - "^build(deps):"
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: Others
+      order: 999
+
+release:
+  github:
+    owner: procodus
+    name: demo-app
+  draft: false
+  prerelease: auto
+  mode: append
+  footer: |
+    ## Installation
+
+    Download the appropriate binary for your platform from the assets below.
+
+    ### Linux/macOS
+    ```bash
+    # Extract the archive
+    tar -xzf demo-app_VERSION_OS_ARCH.tar.gz
+
+    # Move binary to PATH
+    sudo mv demo-app /usr/local/bin/
+
+    # Verify installation
+    demo-app --help
+    ```
+
+    ### Usage
+
+    ```bash
+    # Run generator
+    demo-app generator --help
+
+    # Run backend
+    demo-app backend --help
+
+    # Run frontend
+    demo-app frontend --help
+    ```
+
+    ---
+
+    **Full Changelog**: https://github.com/procodus/demo-app/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    Released with [GoReleaser](https://github.com/goreleaser/goreleaser) 🚀

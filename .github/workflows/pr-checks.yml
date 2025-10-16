@@ -1,0 +1,181 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+  push:
+    branches:
+      - main
+      - master
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: write
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+          POSTGRES_DB: iot_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: guest
+          RABBITMQ_DEFAULT_PASS: guest
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.3'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Verify dependencies
+        run: go mod verify
+
+      - name: Run unit tests
+        run: go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+        env:
+          CGO_ENABLED: 1
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          file: ./coverage.out
+          flags: unittests
+          name: codecov-demo-app
+        continue-on-error: true
+
+      - name: Generate coverage report
+        if: always()
+        run: |
+          go tool cover -func=coverage.out -o=coverage.txt
+          echo "## Test Coverage" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat coverage.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check coverage threshold
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//')
+          echo "Total coverage: ${COVERAGE}%"
+          if (( $(echo "$COVERAGE < 15.0" | bc -l) )); then
+            echo "❌ Coverage ${COVERAGE}% is below threshold of 15%"
+            exit 1
+          fi
+          echo "✅ Coverage ${COVERAGE}% meets threshold"
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.3'
+          cache: true
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v2.2.0
+          args: --timeout=10m --config=.golangci.yaml
+
+      - name: Run go vet
+        run: go vet ./...
+
+      - name: Check formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "❌ Go files must be formatted with gofmt. Please run:"
+            echo "  gofmt -w ."
+            gofmt -l .
+            exit 1
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.3'
+          cache: true
+
+      - name: Build binary
+        run: |
+          go build -v -o bin/demo-app ./cmd
+          ./bin/demo-app --help
+
+      - name: Test all subcommands
+        run: |
+          ./bin/demo-app generator --help
+          ./bin/demo-app backend --help
+          ./bin/demo-app frontend --help
+
+  status-check:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [tests, lint, build]
+    if: always()
+
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.tests.result }}" != "success" ]] || \
+             [[ "${{ needs.lint.result }}" != "success" ]] || \
+             [[ "${{ needs.build.result }}" != "success" ]]; then
+            echo "❌ One or more checks failed"
+            exit 1
+          fi
+          echo "✅ All checks passed"

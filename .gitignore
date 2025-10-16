@@ -135,3 +135,5 @@ fabric.properties
 CLAUDE.md
 
 .claude
+# Added by goreleaser init:
+dist/
