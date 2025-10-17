@@ -358,3 +358,21 @@ autoscaling:
     maxReplicas: 20
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: 80
+
+# Grafana dashboard configuration
+grafana:
+  # Grafana dashboard deployment
+  dashboard:
+    # Enable Grafana dashboard ConfigMap creation
+    enabled: false
+    # Dashboard namespace (if different from release namespace)
+    namespace: ""
+    # Dashboard labels (for Grafana sidecar discovery)
+    labels:
+      grafana_dashboard: "1"
+    # Dashboard annotations
+    annotations: {}
+    # Dashboard folder in Grafana
+    folder: "Demo App"
+    # Dashboard data source name
+    datasource: "Prometheus"

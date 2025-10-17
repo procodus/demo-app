@@ -847,10 +847,6 @@ go list -json -m all | nancy sleuth
 gosec ./...
 ```
 
-### Reporting Issues
-
-Please report security vulnerabilities to: security@procodus.dev
-
 ## 📄 License
 
 Copyright © 2025 Procodus Demo App Team
@@ -858,7 +854,3 @@ Copyright © 2025 Procodus Demo App Team
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
-
-**Made with ❤️ by the Procodus team**
-
-⭐ Star us on GitHub if this project helped you!

@@ -183,6 +183,45 @@ metrics:
 - `demo-app-backend` - Scrapes backend metrics
 - `demo-app-frontend` - Scrapes frontend metrics
 
+### Grafana Dashboard
+
+The chart includes a pre-built Grafana dashboard for monitoring the IoT Data Pipeline. The dashboard is **disabled by default**.
+
+#### Enable Grafana Dashboard
+
+```yaml
+grafana:
+  dashboard:
+    enabled: true  # Creates ConfigMap with dashboard JSON
+    labels:
+      grafana_dashboard: "1"  # Label for Grafana sidecar discovery
+    folder: "Demo App"  # Dashboard folder in Grafana
+    datasource: "Prometheus"  # Prometheus datasource name
+```
+
+**Dashboard Features**:
+- System overview (connection status, active components)
+- Message flow rates (generation, consumption)
+- Performance metrics (request rates, latency percentiles)
+- Error tracking (failures, reconnections)
+- Resource utilization
+
+**Automatic Discovery**: If you're using Grafana with the sidecar pattern, the dashboard will be automatically discovered and imported based on the `grafana_dashboard: "1"` label.
+
+**Manual Import**: If not using sidecar, you can manually import the dashboard:
+```bash
+kubectl get configmap my-demo-app-grafana-dashboard -o jsonpath='{.data.demo-app-overview\.json}' > dashboard.json
+# Import dashboard.json via Grafana UI
+```
+
+**Dashboard Namespace**: By default, the dashboard is created in the same namespace as the release. To deploy it to a different namespace (e.g., monitoring):
+```yaml
+grafana:
+  dashboard:
+    enabled: true
+    namespace: monitoring
+```
+
 ### Application Configuration
 
 #### Generator
